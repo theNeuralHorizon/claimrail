@@ -13,12 +13,21 @@ regexes = [
   "dev-fallback-secret-key-do-not-use-in-production-please",
   # CI-only AUTH_SECRET used by the CI workflow.
   "ci-test-secret-min-32-chars-long-enough-for-hs256-sign",
+  # Test-suite AUTH_SECRET baked into integration tests (never deployed).
+  "test-secret-min-32-chars-long-enough-for-hs256-sign",
+  "test-secret-long-enough-for-hs256-sign-ok",
   # bcrypt dummy hash for the constant-time login path.
   "\\$2a\\$12\\$3oX9BpQJi1x1pQvr3v0ZJOE3XyO6M0cqiYqR1YxAqhtWQsE/bKZtu",
+  # Demo password — intentionally public for the live demo account.
+  "DemoRail!2026",
 ]
 paths = [
   '''node_modules/''',
   '''coverage/''',
   '''\.next/''',
   '''package-lock\.json''',
+  # Test fixtures and vitest configs contain test-only fake secrets.
+  '''^tests/.*\.test\.ts$''',
+  '''^vitest\.config\.ts$''',
+  '''^\.github/workflows/ci\.yml$''',
 ]
