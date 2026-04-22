@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests with coverage
+        env:
+          AUTH_SECRET: ci-test-secret-min-32-chars-long-enough-for-hs256-sign
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          retention-days: 14
+
+      - name: Build
+        env:
+          AUTH_SECRET: ci-test-secret-min-32-chars-long-enough-for-hs256-sign
+        run: npm run build
+
+      - name: Smoke test migration
+        env:
+          AUTH_SECRET: ci-test-secret-min-32-chars-long-enough-for-hs256-sign
+          DATABASE_URL: ./ci-smoke.db
+        run: |
+          npx tsx lib/db/migrate.ts
+          test -s ci-smoke.db
+          echo "migration ok"
