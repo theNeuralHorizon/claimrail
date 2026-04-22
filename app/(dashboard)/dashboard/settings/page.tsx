@@ -151,6 +151,18 @@ export default async function SettingsPage() {
               {chainStatus.ok ? 'Intact' : `Broken at #${chainStatus.brokenAtIndex}`}
             </Badge>
           </div>
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100">
+            <div>
+              <div className="text-sm font-medium text-ink-900">Security events</div>
+              <div className="text-xs text-ink-500">
+                Adversarial activity and defense triggers.{' '}
+                <Link href="/dashboard/settings/security" className="text-brand-700 hover:underline">
+                  View events →
+                </Link>
+              </div>
+            </div>
+            <Badge tone="info">Live</Badge>
+          </div>
         </CardContent>
       </Card>
 

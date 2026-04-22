@@ -53,8 +53,13 @@ export function parseHeuristic(text: string): ParsedSla {
     return { provider: 'heuristic', tiers: [], warnings: ['Empty SLA text'] };
   }
 
+  // ReDoS hard cap — an attacker pasting a 10 MB crafted string would
+  // otherwise burn CPU on the regex backtracker. 80KB is about 15 printed
+  // pages of SLA text, which covers every vendor contract we've seen.
+  const capped = text.length > 80_000 ? text.slice(0, 80_000) : text;
+
   // Normalize whitespace but preserve line breaks as sentence boundaries
-  const normalized = text
+  const normalized = capped
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .replace(/\u00a0/g, ' ');

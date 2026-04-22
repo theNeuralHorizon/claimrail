@@ -49,6 +49,38 @@ CREATE TABLE IF NOT EXISTS totp_backup_codes (
 );
 CREATE INDEX IF NOT EXISTS totp_backup_codes_user_idx ON totp_backup_codes(user_id);
 
+CREATE TABLE IF NOT EXISTS password_history (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS password_history_user_idx ON password_history(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS totp_replay_nonces (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  step INTEGER NOT NULL,
+  accepted_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE UNIQUE INDEX IF NOT EXISTS totp_replay_user_step_idx ON totp_replay_nonces(user_id, step);
+
+CREATE TABLE IF NOT EXISTS security_events (
+  id TEXT PRIMARY KEY,
+  org_id TEXT REFERENCES orgs(id) ON DELETE CASCADE,
+  user_id TEXT,
+  kind TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'info',
+  ip TEXT,
+  user_agent TEXT,
+  country TEXT,
+  metadata_json TEXT,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS security_events_org_time_idx ON security_events(org_id, created_at);
+CREATE INDEX IF NOT EXISTS security_events_kind_idx ON security_events(kind);
+CREATE INDEX IF NOT EXISTS security_events_user_idx ON security_events(user_id);
+
 CREATE TABLE IF NOT EXISTS memberships (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

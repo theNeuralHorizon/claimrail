@@ -204,6 +204,16 @@ export function currentTotp(secretB32: string, now = Date.now()): string {
 }
 
 /**
+ * Deterministic check: does `code` match the HOTP value at exactly `step`?
+ * Used by the replay-nonce module to pin the precise step that was
+ * accepted, so subsequent tries on the same step get rejected.
+ */
+export function verifyTotpAtStep(secretB32: string, code: string, step: number): boolean {
+  if (!/^\d{6}$/.test(code)) return false;
+  return constantTimeCompare(hotp(secretB32, step), code);
+}
+
+/**
  * Verify a TOTP code with ±1 step window (±30s clock drift).
  * Uses constant-time comparison.
  */

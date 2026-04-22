@@ -69,10 +69,17 @@ export async function signSession(payload: SessionPayload): Promise<string> {
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const secret = getSecret();
-    const { payload } = await jwtVerify(token, secret, {
+    // Pin algorithms to HS256 only. Defends against "alg: none" and
+    // algorithm-confusion attacks (sending an RS256 JWT signed with what
+    // an attacker hopes is our HMAC key as an RSA public key).
+    const { payload, protectedHeader } = await jwtVerify(token, secret, {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
+      algorithms: ['HS256'],
+      typ: 'JWT',
     });
+    // Belt+suspenders: reject any token whose header claims something else.
+    if (protectedHeader.alg !== 'HS256') return null;
     if (
       typeof payload.sid !== 'string' ||
       typeof payload.uid !== 'string' ||

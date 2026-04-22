@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db/client';
 import { orgs, users, memberships, sessions } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import {
   checkPasswordPolicy,
   hashPassword,
@@ -30,23 +30,48 @@ import {
 } from './lockout';
 import { consumeToken, issueToken } from './tokens';
 import { sendEmail, appUrl } from './email';
-import { decryptFromJson, verifyTotp } from '@/lib/security/crypto';
+import {
+  digestToken,
+  decryptFromJson,
+  verifyTotp,
+  verifyTotpAtStep,
+} from '@/lib/security/crypto';
 import { totpBackupCodes } from '@/lib/db/schema';
-import { verifyPassword as bcryptVerify } from './password';
-import { and } from 'drizzle-orm';
+import { isDisabled, killSwitchMessage } from '@/lib/security/kill-switch';
+import { logSecurityEvent } from '@/lib/security/security-log';
+import { sanitizeLine, sanitizeBlock } from '@/lib/security/sanitize';
+import {
+  matchesPasswordHistory,
+  pushPasswordHistory,
+} from './password-history';
+import { pinTotpStep, stepForCode } from './totp-nonce';
+import { evaluateLoginAnomalies } from '@/lib/security/anomaly';
 
-const signupSchema = z.object({
-  email: z.string().email().max(256),
-  password: z.string().min(1).max(128),
-  name: z.string().min(1).max(100),
-  orgName: z.string().min(1).max(100),
-});
+// Every mutation schema is strict so unknown keys fail fast instead of
+// being silently dropped (defense against mass-assignment).
+const signupSchema = z
+  .object({
+    email: z.string().email().max(256),
+    password: z.string().min(1).max(128),
+    name: z.string().min(1).max(100),
+    orgName: z.string().min(1).max(100),
+    // Honeypot: real browsers leave this empty. Bots fill every input.
+    company_website: z.string().max(0).optional(),
+    // Client-side JS writes this when the form mounts. Any submit faster
+    // than MIN_SUBMIT_MS is almost certainly a bot.
+    formMountedAt: z.coerce.number().optional(),
+  })
+  .strict();
 
-const loginSchema = z.object({
-  email: z.string().email().max(256),
-  password: z.string().min(1).max(128),
-  totpCode: z.string().max(20).optional(),
-});
+const loginSchema = z
+  .object({
+    email: z.string().email().max(256),
+    password: z.string().min(1).max(128),
+    totpCode: z.string().max(20).optional(),
+  })
+  .strict();
+
+const MIN_SIGNUP_SUBMIT_MS = 2_000;
 
 function slugify(input: string): string {
   return input
@@ -56,13 +81,14 @@ function slugify(input: string): string {
     .slice(0, 50);
 }
 
-function requesterIp(): string {
+function requestMeta(): { ip: string; userAgent: string } {
   const h = headers();
-  return (
+  const ip =
     h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     h.get('x-real-ip') ??
-    'unknown'
-  );
+    'unknown';
+  const ua = h.get('user-agent')?.slice(0, 300) ?? '';
+  return { ip, userAgent: ua };
 }
 
 async function recordAudit(
@@ -82,7 +108,11 @@ async function recordAudit(
   });
 }
 
-export type ActionState = { error?: string; success?: string; requiresTotp?: boolean };
+export type ActionState = {
+  error?: string;
+  success?: string;
+  requiresTotp?: boolean;
+};
 
 // ─────────────────────────────────────────────────────────────────────────
 // Signup
@@ -91,21 +121,50 @@ export async function signupAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const ip = requesterIp();
+  const { ip, userAgent } = requestMeta();
+
+  if (isDisabled('signup')) {
+    await logSecurityEvent({ kind: 'kill_switch.engaged', ip, userAgent, metadata: { subsystem: 'signup' } });
+    return { error: killSwitchMessage('signup') };
+  }
+
   const rl = rateLimit(`signup:${ip}`, { limit: 5, windowSeconds: 3600 });
   if (!rl.allowed) {
+    await logSecurityEvent({ kind: 'signup.rate_limited', ip, userAgent });
     return { error: 'Too many attempts. Try again in an hour.' };
   }
+
+  const honeypot = String(formData.get('company_website') ?? '');
+  if (honeypot.length > 0) {
+    // Real browsers don't submit anything in an invisible field. Silent
+    // success: don't tip the bot off.
+    await logSecurityEvent({ kind: 'signup.honeypot', severity: 'high', ip, userAgent });
+    return { success: "If everything looks good, you'll receive a verification email." };
+  }
+
+  const mountedAt = Number(formData.get('formMountedAt') ?? 0);
+  if (mountedAt > 0 && Date.now() - mountedAt < MIN_SIGNUP_SUBMIT_MS) {
+    await logSecurityEvent({ kind: 'signup.too_fast', ip, userAgent, metadata: { elapsedMs: Date.now() - mountedAt } });
+    return { error: 'Please give the form a moment to load and try again.' };
+  }
+
   const parsed = signupSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
     name: formData.get('name'),
     orgName: formData.get('orgName'),
+    company_website: formData.get('company_website') ?? undefined,
+    formMountedAt: mountedAt || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message ?? 'Invalid input' };
   }
-  const { email, password, name, orgName } = parsed.data;
+
+  const email = sanitizeLine(parsed.data.email, 256);
+  const name = sanitizeLine(parsed.data.name, 100);
+  const orgName = sanitizeLine(parsed.data.orgName, 100);
+  const { password } = parsed.data;
+
   const policy = checkPasswordPolicy(password, { email, name });
   if (!policy.ok) return { error: policy.reason };
 
@@ -142,7 +201,6 @@ export async function signupAction(
     .values({ id: nanoid(16), userId, orgId, role: 'owner' })
     .run();
 
-  // Issue an email verification link (dev-mode: logs to stdout).
   const token = await issueToken(userId, 'email_verify');
   await sendEmail({
     to: normalizedEmail,
@@ -162,8 +220,14 @@ export async function loginAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const ip = requesterIp();
-  const email = String(formData.get('email') ?? '').trim();
+  const { ip, userAgent } = requestMeta();
+
+  if (isDisabled('login')) {
+    await logSecurityEvent({ kind: 'kill_switch.engaged', ip, userAgent, metadata: { subsystem: 'login' } });
+    return { error: killSwitchMessage('login') };
+  }
+
+  const email = sanitizeLine(String(formData.get('email') ?? ''), 256);
 
   const ipLimit = rateLimit(`login:ip:${ip}`, { limit: 20, windowSeconds: 900 });
   const emailLimit = rateLimit(`login:email:${email.toLowerCase()}`, {
@@ -171,6 +235,7 @@ export async function loginAction(
     windowSeconds: 900,
   });
   if (!ipLimit.allowed || !emailLimit.allowed) {
+    await logSecurityEvent({ kind: 'login.rate_limited', ip, userAgent, metadata: { email } });
     return { error: 'Too many failed attempts. Wait 15 minutes and try again.' };
   }
 
@@ -181,6 +246,7 @@ export async function loginAction(
   });
   if (!parsed.success) {
     await runDummyVerify();
+    await logSecurityEvent({ kind: 'login.failed', ip, userAgent, metadata: { reason: 'schema' } });
     return { error: 'Invalid email or password.' };
   }
 
@@ -193,10 +259,17 @@ export async function loginAction(
 
   if (!user) {
     await runDummyVerify();
+    await logSecurityEvent({ kind: 'login.failed', ip, userAgent, metadata: { reason: 'no_user' } });
     return { error: 'Invalid email or password.' };
   }
 
   if (isLocked(user)) {
+    await logSecurityEvent({
+      kind: 'login.locked',
+      userId: user.id,
+      ip,
+      userAgent,
+    });
     return {
       error: `Account temporarily locked after ${LOCK_THRESHOLD} failed attempts. Try again later or reset your password.`,
     };
@@ -205,26 +278,49 @@ export async function loginAction(
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) {
     await recordFailedLogin(user.id);
+    await logSecurityEvent({ kind: 'login.failed', userId: user.id, ip, userAgent, metadata: { reason: 'bad_password' } });
     return { error: 'Invalid email or password.' };
   }
 
-  // 2FA: if TOTP is enabled, require a code.
   if (user.totpEnabledAt && user.totpSecretEncrypted) {
     const code = (parsed.data.totpCode ?? '').trim();
-    if (!code) {
-      // Tell the client to render the 2FA field. Don't advance the session.
-      return { requiresTotp: true };
+    if (!code) return { requiresTotp: true };
+
+    // Dedicated rate limit for the TOTP step — keeps an attacker with
+    // correct password from enumerating the ~1M 6-digit codes.
+    const totpLimit = rateLimit(`totp:${user.id}`, { limit: 10, windowSeconds: 600 });
+    if (!totpLimit.allowed) {
+      await logSecurityEvent({ kind: 'totp.rate_limited', userId: user.id, ip, userAgent });
+      return { requiresTotp: true, error: 'Too many 2FA attempts. Try again in 10 minutes.' };
     }
+
+    const secret = decryptFromJson(user.totpSecretEncrypted);
     let valid = false;
-    // Try 6-digit TOTP first.
+
     if (/^\d{6}$/.test(code)) {
-      const secret = decryptFromJson(user.totpSecretEncrypted);
-      valid = verifyTotp(secret, code);
+      const step = stepForCode(secret, code, verifyTotpAtStep);
+      if (step != null) {
+        const pinned = await pinTotpStep(user.id, step);
+        if (pinned) valid = true;
+        else {
+          await logSecurityEvent({
+            kind: 'totp.replay',
+            severity: 'high',
+            userId: user.id,
+            ip,
+            userAgent,
+            metadata: { step },
+          });
+          return { requiresTotp: true, error: 'That code was already used. Wait for the next one.' };
+        }
+      }
+      // Fall back to legacy verify (no pin) only if stepForCode didn't
+      // match — shouldn't happen, kept as defense-in-depth.
+      if (!valid && verifyTotp(secret, code)) valid = true;
     } else {
-      // Otherwise try backup codes.
+      // Backup code path.
       const normalizedCode = code.toLowerCase().replace(/\s+/g, '');
-      const { hashToken } = await import('@/lib/security/crypto');
-      const hash = hashToken(normalizedCode);
+      const hash = digestToken(normalizedCode);
       const row = await db
         .select()
         .from(totpBackupCodes)
@@ -239,13 +335,43 @@ export async function loginAction(
         valid = true;
       }
     }
+
     if (!valid) {
       await recordFailedLogin(user.id);
+      await logSecurityEvent({ kind: 'totp.failed', userId: user.id, ip, userAgent });
       return { requiresTotp: true, error: 'Invalid 2FA code.' };
     }
   }
 
   await recordSuccessfulLogin(user.id);
+
+  // Anomaly check uses prior login.success events — do this BEFORE
+  // logging the current event so the "new device" heuristic doesn't see
+  // itself.
+  const anomalies = await evaluateLoginAnomalies({
+    userId: user.id,
+    ip,
+    userAgent,
+  });
+  if (anomalies.impossibleTravel) {
+    await logSecurityEvent({
+      kind: 'anomaly.impossible_travel',
+      severity: 'high',
+      userId: user.id,
+      ip,
+      userAgent,
+    });
+  }
+  if (anomalies.newDevice) {
+    await logSecurityEvent({
+      kind: 'anomaly.new_device',
+      userId: user.id,
+      ip,
+      userAgent,
+    });
+  }
+
+  await logSecurityEvent({ kind: 'login.success', userId: user.id, ip, userAgent });
   await createSession(user.id, user.email);
   redirect('/dashboard');
 }
@@ -267,12 +393,6 @@ export async function logoutAllSessionsAction(): Promise<void> {
 // Email verification
 // ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Form-compatible wrapper for the resend flow — returns void so it works
- * with `<form action={resendVerificationForm}>` (Server Actions with
- * state use `useFormState` and want Promise<ActionState>; plain forms
- * want Promise<void>).
- */
 export async function resendVerificationForm(): Promise<void> {
   await resendVerificationAction();
 }
@@ -302,12 +422,6 @@ export async function resendVerificationAction(): Promise<ActionState> {
   return { success: 'Verification email sent.' };
 }
 
-/**
- * Confirm-email is a one-shot: it always redirects. We use the plain
- * `<form action={fn}>` signature (FormData in, void out) rather than
- * useFormState, because there's no in-page error UI to render — a failure
- * redirects to /verify-email?error=1.
- */
 export async function confirmEmailAction(formData: FormData): Promise<void> {
   const token = String(formData.get('token') ?? '');
   const consumed = await consumeToken(token, 'email_verify');
@@ -321,13 +435,15 @@ export async function confirmEmailAction(formData: FormData): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Password change (requires current password)
+// Password change
 // ─────────────────────────────────────────────────────────────────────────
 
-const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1).max(128),
-  newPassword: z.string().min(1).max(128),
-});
+const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(128),
+    newPassword: z.string().min(1).max(128),
+  })
+  .strict();
 
 export async function changePasswordAction(
   _prev: ActionState,
@@ -346,7 +462,7 @@ export async function changePasswordAction(
 
   const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
   if (!user) return { error: 'Account not found.' };
-  const ok = await bcryptVerify(parsed.data.currentPassword, user.passwordHash);
+  const ok = await verifyPassword(parsed.data.currentPassword, user.passwordHash);
   if (!ok) return { error: 'Current password is incorrect.' };
 
   const policy = checkPasswordPolicy(parsed.data.newPassword, {
@@ -354,16 +470,25 @@ export async function changePasswordAction(
     name: user.name,
   });
   if (!policy.ok) return { error: policy.reason };
-  if (parsed.data.currentPassword === parsed.data.newPassword) {
-    return { error: 'New password must differ from current password.' };
+
+  if (
+    await matchesPasswordHistory(user.id, parsed.data.newPassword, user.passwordHash)
+  ) {
+    await logSecurityEvent({
+      kind: 'password.history.rejected',
+      userId: user.id,
+      orgId: ctx.org.id,
+    });
+    return {
+      error: "You've used this password recently. Choose a new one that's different from your last five.",
+    };
   }
 
+  const oldHash = user.passwordHash;
   const hash = await hashPassword(parsed.data.newPassword);
   await db.update(users).set({ passwordHash: hash }).where(eq(users.id, user.id)).run();
+  await pushPasswordHistory(user.id, oldHash);
 
-  // Invalidate every other session — the current session stays valid so
-  // the user doesn't get bounced out of the page they just completed the
-  // change on. Everything else is forcibly signed out.
   const current = await currentSessionId();
   const allSessions = await db.select().from(sessions).where(eq(sessions.userId, user.id)).all();
   for (const s of allSessions) {
@@ -373,26 +498,32 @@ export async function changePasswordAction(
   }
 
   await recordAudit('auth.password.change', user.id, {}, ctx.org.id);
+  await logSecurityEvent({
+    kind: 'password.change.succeeded',
+    userId: user.id,
+    orgId: ctx.org.id,
+  });
   return { success: 'Password updated. Other sessions signed out.' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Password reset (forgot password)
+// Password reset
 // ─────────────────────────────────────────────────────────────────────────
 
-const forgotPasswordSchema = z.object({
-  email: z.string().email().max(256),
-});
+const forgotPasswordSchema = z
+  .object({ email: z.string().email().max(256) })
+  .strict();
 
 export async function forgotPasswordAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const ip = requesterIp();
+  const { ip, userAgent } = requestMeta();
+  if (isDisabled('password_reset')) {
+    return { success: 'If that email exists, a reset link has been sent.' };
+  }
   const rl = rateLimit(`pwreset:ip:${ip}`, { limit: 5, windowSeconds: 3600 });
   if (!rl.allowed) {
-    // Intentionally do NOT leak rate-limit state to the caller; always
-    // return the same generic success message.
     return { success: 'If that email exists, a reset link has been sent.' };
   }
   const parsed = forgotPasswordSchema.safeParse({ email: formData.get('email') });
@@ -412,15 +543,22 @@ export async function forgotPasswordAction(
         `${appUrl()}/reset-password?token=${token.rawToken}\n\n` +
         `If it wasn't you, ignore this email.`,
     });
+    await logSecurityEvent({
+      kind: 'password.reset.requested',
+      userId: user.id,
+      ip,
+      userAgent,
+    });
   }
-  // Constant timing regardless of whether the user existed.
   return { success: 'If that email exists, a reset link has been sent.' };
 }
 
-const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  newPassword: z.string().min(1).max(128),
-});
+const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    newPassword: z.string().min(1).max(128),
+  })
+  .strict();
 
 export async function resetPasswordAction(
   _prev: ActionState,
@@ -436,20 +574,34 @@ export async function resetPasswordAction(
   if (!consumed) return { error: 'This reset link is invalid or expired.' };
   const user = await db.select().from(users).where(eq(users.id, consumed.userId)).get();
   if (!user) return { error: 'Account not found.' };
+
   const policy = checkPasswordPolicy(parsed.data.newPassword, {
     email: user.email,
     name: user.name,
   });
   if (!policy.ok) return { error: policy.reason };
 
+  if (
+    await matchesPasswordHistory(user.id, parsed.data.newPassword, user.passwordHash)
+  ) {
+    return {
+      error: "You've used this password recently. Choose one that's different from your last five.",
+    };
+  }
+
+  const oldHash = user.passwordHash;
   const hash = await hashPassword(parsed.data.newPassword);
   await db
     .update(users)
     .set({ passwordHash: hash, failedLoginCount: 0, lockedUntil: null })
     .where(eq(users.id, user.id))
     .run();
-  // Revoke *every* session for this user — a reset means their credential
-  // may have been compromised.
+  await pushPasswordHistory(user.id, oldHash);
   await db.delete(sessions).where(eq(sessions.userId, user.id)).run();
+  await logSecurityEvent({
+    kind: 'password.reset.succeeded',
+    userId: user.id,
+  });
   redirect('/login?reset=1');
 }
+

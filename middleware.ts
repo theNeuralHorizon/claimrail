@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { disabledKeys } from '@/lib/security/kill-switch';
 
 function generateNonce(): string {
   const bytes = new Uint8Array(16);
@@ -126,6 +127,17 @@ export function middleware(req: NextRequest): NextResponse {
   res.headers.set('X-DNS-Prefetch-Control', 'off');
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   res.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+  // Deny cross-origin access at the server layer too. The middleware
+  // blocks OPTIONS preflights by not emitting any Access-Control-* headers,
+  // so cross-origin fetches fail the preflight.
+  res.headers.delete('access-control-allow-origin');
+
+  // Incident-response visibility: if any subsystem is killed via env, tell
+  // the dashboard UI so it can render a banner without an extra request.
+  const killed = disabledKeys();
+  if (killed.length > 0) {
+    res.headers.set('X-ClaimRail-Disabled', killed.join(','));
+  }
   // Report-To endpoint configuration for modern browsers that honour
   // `report-to` instead of the legacy `report-uri` directive.
   res.headers.set(
