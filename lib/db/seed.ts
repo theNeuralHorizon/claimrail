@@ -128,7 +128,17 @@ async function main() {
   const passwordHash = await hashPassword('DemoRail!2026');
 
   await db.insert(orgs).values({ id: orgId, name: 'Acme Industries', slug: 'acme', plan: 'pro' }).run();
-  await db.insert(users).values({ id: userId, email: demoEmail, name: 'Avery Kim', passwordHash }).run();
+  await db
+    .insert(users)
+    .values({
+      id: userId,
+      email: demoEmail,
+      name: 'Avery Kim',
+      passwordHash,
+      // Pre-verify demo user so they don't get stuck behind the verify page.
+      emailVerifiedAt: Math.floor(Date.now() / 1000),
+    })
+    .run();
   await db.insert(memberships).values({ id: nanoid(16), userId, orgId, role: 'owner' }).run();
 
   for (const seed of VENDOR_SEEDS) {

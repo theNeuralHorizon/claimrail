@@ -10,6 +10,7 @@ user, nothing here requires action from you.
 1. GitHub's private vulnerability reporting on this repo (preferred).
 2. Email: `security@claimrail.example` — replace with your maintainer's real
    address before going live.
+3. See [`/.well-known/security.txt`](public/.well-known/security.txt) (RFC 9116).
 
 We acknowledge reports within 48 hours and aim to ship a fix within 30 days
 for critical issues.
@@ -21,9 +22,15 @@ for critical issues.
 | Threat | Control |
 |--------|---------|
 | Credential stuffing / brute force | Per-IP (20/15m) + per-email (8/15m) rate limits on login. Per-IP (5/hr) rate limit on signup. |
+| Distributed brute force (rotating IPs) | **Per-account lockout** kicks in after 5 failures; lockout time doubles with each additional failure, capped at 1 hour. Cleared on successful login or password reset. |
 | Password cracking if DB leaks | `bcrypt` with cost 12. `AUTH_SECRET` signs JWTs and is required (min 32 chars) in production. |
 | Weak passwords | 12-char minimum, 3-of-4 character classes, common-password blocklist, email/name substring check. |
-| User enumeration | Same-timing `bcrypt` dummy compare on missing user at login. Generic error on signup if email exists. |
+| User enumeration | Same-timing `bcrypt` dummy compare on missing user at login. Generic error on signup if email exists. Password-reset always returns the same success message regardless of whether the email is registered. |
+| Unverified email | Signup issues a single-use email-verification token (24h, sha256-hashed in DB). Unverified users can sign in but see a banner and cannot be fully trusted. Resend is rate-limited to 3/hour. |
+| Phishing / account takeover | Optional **TOTP 2FA (RFC 6238)** with encrypted seed (AES-256-GCM under a KDF over `AUTH_SECRET`) and 10 single-use backup codes (stored only as sha256 hashes). Enabling or disabling 2FA revokes every other session. |
+| Password reset link leakage | 30-minute expiry, sha256-hashed token, single-use, issuing a new one invalidates the previous. All sessions invalidated on successful reset. |
+| Forgotten password replay | Reset tokens stored only as sha256, marked used atomically — replay or reuse returns the generic error. |
+| Password change abuse | Re-requires the current password. On change, every other session for the user is revoked. |
 | Session hijack via XSS | `HttpOnly` `Secure` `SameSite=Lax` cookie with `__Host-` prefix. |
 | Stolen session cookie | UA + IP fingerprint bound into the JWT; mismatched client → session revoked. |
 | Eternal sessions | 7-day sliding + 30-day absolute cap. |
@@ -42,6 +49,8 @@ for critical issues.
 | Browser feature abuse | `Permissions-Policy` disables camera, mic, geolocation, payment, USB, etc. |
 | Cross-origin side-channels | `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`. |
 | Version fingerprinting | `X-Powered-By` stripped. |
+| CSP violations in production | Browser reports POSTed to `/api/security/csp-report` via both legacy `report-uri` and modern `Report-To` group; logged for observability pipelines to consume. |
+| Inadvertent HTTP in production | Middleware 308-redirects `http://` → `https://` whenever `x-forwarded-proto: http` is observed in production. Combined with HSTS, future requests skip the redirect. |
 
 ### SSRF
 
@@ -80,16 +89,26 @@ for critical issues.
 
 - **Password hashing:** `bcrypt`, cost 12. Slow enough for offline attacks (~300 ms/try) while fast enough for login flows.
 - **Session tokens:** JWT (HS256) with `iss=claimrail`, `aud=claimrail-web`, `iat`, `exp`. Signed by `AUTH_SECRET`. Server-side session row backs revocation.
-- **Audit chain:** SHA-256 of a canonical field-concat.
+- **TOTP seeds:** AES-256-GCM with a SHA-256-derived key over `AUTH_SECRET`. The ciphertext + 96-bit IV + 128-bit tag are stored together. Random IV per encrypt.
+- **Verification tokens:** 32-byte `base64url` random; stored only as `sha256(token)` with `expires_at` + single-use guard.
+- **Backup codes:** 10-byte random, formatted `xxxx-xxxxxx`; stored only as `sha256(code)`.
+- **Audit chain:** SHA-256 of a canonical field-concat including a strictly-monotonic per-org sequence number.
 - **Fingerprint:** SHA-256 of `UA + | + IP`, truncated to 24 hex chars.
+
+## CI / supply-chain
+
+- **Dependency audit:** `npm audit --omit=dev --audit-level=high` on every CI run.
+- **Secret scanning:** [gitleaks](https://github.com/gitleaks/gitleaks) on every push and PR, with a project-specific allowlist (`.gitleaks.toml`) for the dev-fallback secret and bcrypt dummy hash.
+- **Static analysis:** [CodeQL](https://codeql.github.com/) with the `security-and-quality` query suite runs on every push, PR, and weekly at 06:00 UTC Monday.
+- **Dependabot:** weekly PRs for npm updates (grouped: prod-patch, dev-minor-patch) and monthly for GitHub Actions pins.
 
 ## What we don't defend against (yet)
 
-- **Distributed brute force** — our rate limit is per-IP; a botnet can rotate IPs. Real production would use an IP-reputation service or challenge-response.
-- **Stolen DB + `AUTH_SECRET`** — if both leak, an attacker can mint sessions. Mitigate with secret rotation runbook (not included).
+- **Stolen DB + `AUTH_SECRET`** — if both leak, an attacker can mint sessions and decrypt TOTP seeds. Mitigate with a secret-rotation runbook (not included).
 - **Side-channel timing attacks on probes** — probe timing isn't constant-time; an attacker with network proximity could infer vendor latency. Not in our threat model.
 - **Sub-resource integrity** — we don't ship any CDN scripts, but if you add one, add SRI attributes.
-- **Hardware 2FA / TOTP** — planned for the Pro tier.
+- **WebAuthn / passkeys** — we support TOTP today; hardware-backed credentials are a future addition.
+- **Anomaly detection** — we write an audit chain but don't yet alert on suspicious patterns (e.g. 10 logins from 10 countries in 10 minutes). Wire audit events into your SIEM to cover this.
 
 ## Audit trail
 

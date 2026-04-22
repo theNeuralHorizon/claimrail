@@ -135,6 +135,18 @@ export async function destroySession(): Promise<void> {
   cookieStore.delete(LEGACY_COOKIE_NAME);
 }
 
+/**
+ * Return the session id encoded in the current request's cookie, or null
+ * if there's no session. Used by the password-change flow to preserve the
+ * current session while revoking every other one.
+ */
+export async function currentSessionId(): Promise<string | null> {
+  const token = readSessionCookie();
+  if (!token) return null;
+  const payload = await verifySession(token);
+  return payload?.sid ?? null;
+}
+
 export async function destroyAllSessionsForUser(): Promise<void> {
   const ctx = await getAuthContext();
   if (!ctx) return;

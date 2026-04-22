@@ -1,10 +1,16 @@
+import Link from 'next/link';
 import { requireAuth } from '@/lib/auth/session';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { logoutAllSessionsAction } from '@/lib/auth/actions';
+import { logoutAllSessionsAction, resendVerificationForm } from '@/lib/auth/actions';
 import { verifyAuditChain } from '@/lib/audit/chain';
+import { db } from '@/lib/db/client';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { ChangePasswordForm } from './change-password-form';
+import { TotpSection } from './totp-section';
 
 export const metadata = { title: 'Settings · ClaimRail' };
 
@@ -12,12 +18,35 @@ export default async function SettingsPage() {
   const ctx = await requireAuth();
   const cronUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/cron/probes`;
   const chainStatus = await verifyAuditChain(ctx.org.id);
+  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+  const emailVerified = user?.emailVerifiedAt != null;
+  const totpEnabled = user?.totpEnabledAt != null;
+
   return (
     <div className="p-8 max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Settings</h1>
-        <p className="text-sm text-ink-500 mt-1">Organization and account preferences.</p>
+        <p className="text-sm text-ink-500 mt-1">
+          Organization, account, and security preferences.
+        </p>
       </div>
+
+      {!emailVerified ? (
+        <div className="rounded-xl border border-amber-200 bg-warn-50 p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-warn-600">
+              Verify your email to unlock everything
+            </div>
+            <div className="text-xs text-warn-600 mt-0.5">
+              We sent a link to {ctx.user.email}. Click it, or request a new one.
+            </div>
+          </div>
+          <form action={resendVerificationForm}>
+            <Button type="submit" variant="outline" size="sm">Resend</Button>
+          </form>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Organization</CardTitle>
@@ -32,18 +61,24 @@ export default async function SettingsPage() {
             <div className="space-y-1.5">
               <Label>Plan</Label>
               <div className="h-10 flex items-center">
-                <Badge tone="success" className="capitalize">
-                  {ctx.org.plan}
-                </Badge>
+                <Badge tone="success" className="capitalize">{ctx.org.plan}</Badge>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
-          <CardDescription>Signed in as…</CardDescription>
+          <CardDescription>
+            Signed in as {ctx.user.email}{' '}
+            {emailVerified ? (
+              <Badge tone="success" className="ml-2">Verified</Badge>
+            ) : (
+              <Badge tone="warn" className="ml-2">Unverified</Badge>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -52,18 +87,39 @@ export default async function SettingsPage() {
               <Input defaultValue={ctx.user.name} disabled />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input defaultValue={ctx.user.email} disabled />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Role</Label>
-            <div>
-              <Badge tone="info" className="capitalize">{ctx.role}</Badge>
+              <Label>Role</Label>
+              <div className="h-10 flex items-center">
+                <Badge tone="info" className="capitalize">{ctx.role}</Badge>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Password</CardTitle>
+          <CardDescription>
+            Changing your password signs out every other active session.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Two-factor authentication</CardTitle>
+          <CardDescription>
+            Require a rotating 6-digit code in addition to your password.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TotpSection enabled={totpEnabled} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Security</CardTitle>
@@ -72,26 +128,23 @@ export default async function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-sm font-medium text-ink-900">
-                Sign out of all devices
-              </div>
+              <div className="text-sm font-medium text-ink-900">Sign out of all devices</div>
               <div className="text-xs text-ink-500">
                 Revoke every active session for your account, including this browser.
               </div>
             </div>
             <form action={logoutAllSessionsAction}>
-              <Button type="submit" variant="outline" size="sm">
-                Log out everywhere
-              </Button>
+              <Button type="submit" variant="outline" size="sm">Log out everywhere</Button>
             </form>
           </div>
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100">
             <div>
-              <div className="text-sm font-medium text-ink-900">
-                Audit log integrity
-              </div>
+              <div className="text-sm font-medium text-ink-900">Audit log integrity</div>
               <div className="text-xs text-ink-500">
-                {chainStatus.checked} events verified via hash chain.
+                {chainStatus.checked} events verified via hash chain.{' '}
+                <Link href="/dashboard/settings/audit" className="text-brand-700 hover:underline">
+                  View log →
+                </Link>
               </div>
             </div>
             <Badge tone={chainStatus.ok ? 'success' : 'danger'}>
@@ -100,6 +153,7 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Probing</CardTitle>

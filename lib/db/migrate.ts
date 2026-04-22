@@ -19,9 +19,35 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
+  email_verified_at INTEGER,
+  totp_secret_encrypted TEXT,
+  totp_enabled_at INTEGER,
+  failed_login_count INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email);
+
+CREATE TABLE IF NOT EXISTS verification_tokens (
+  id TEXT PRIMARY KEY,
+  token_hash TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE UNIQUE INDEX IF NOT EXISTS verification_tokens_hash_idx ON verification_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS verification_tokens_user_purpose_idx ON verification_tokens(user_id, purpose);
+
+CREATE TABLE IF NOT EXISTS totp_backup_codes (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS totp_backup_codes_user_idx ON totp_backup_codes(user_id);
 
 CREATE TABLE IF NOT EXISTS memberships (
   id TEXT PRIMARY KEY,
@@ -134,6 +160,12 @@ const MIGRATION_PATCHES = [
   "ALTER TABLE audit_events ADD COLUMN seq INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE audit_events ADD COLUMN prev_hash TEXT",
   "ALTER TABLE audit_events ADD COLUMN row_hash TEXT",
+  // Security phase 2 columns on users.
+  "ALTER TABLE users ADD COLUMN email_verified_at INTEGER",
+  "ALTER TABLE users ADD COLUMN totp_secret_encrypted TEXT",
+  "ALTER TABLE users ADD COLUMN totp_enabled_at INTEGER",
+  "ALTER TABLE users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN locked_until INTEGER",
 ];
 
 export async function migrate(): Promise<void> {

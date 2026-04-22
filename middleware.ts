@@ -23,6 +23,12 @@ function generateNonce(): string {
     .replace(/\//g, '_');
 }
 
+function shouldForceHttps(req: NextRequest): boolean {
+  if (process.env.NODE_ENV !== 'production') return false;
+  const proto = req.headers.get('x-forwarded-proto') ?? '';
+  return proto === 'http';
+}
+
 function buildCsp(nonce: string, isDev: boolean): string {
   const scriptSrc = [
     "'self'",
@@ -52,6 +58,8 @@ function buildCsp(nonce: string, isDev: boolean): string {
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
+    "report-uri /api/security/csp-report",
+    "report-to csp-endpoint",
     isDev ? '' : 'upgrade-insecure-requests',
   ]
     .filter(Boolean)
@@ -61,6 +69,15 @@ function buildCsp(nonce: string, isDev: boolean): string {
 export function middleware(req: NextRequest): NextResponse {
   const nonce = generateNonce();
   const isDev = process.env.NODE_ENV !== 'production';
+
+  // Force-redirect HTTP → HTTPS when we're behind a TLS-terminating proxy
+  // in production. Handled before CSP so upgraded connections get the
+  // final headers.
+  if (shouldForceHttps(req)) {
+    const url = req.nextUrl.clone();
+    url.protocol = 'https:';
+    return NextResponse.redirect(url, 308);
+  }
 
   // Forward the nonce to the app via a request header so server components
   // (via `headers()`) can inject it into inline scripts if we ever need to.
@@ -109,6 +126,16 @@ export function middleware(req: NextRequest): NextResponse {
   res.headers.set('X-DNS-Prefetch-Control', 'off');
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   res.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+  // Report-To endpoint configuration for modern browsers that honour
+  // `report-to` instead of the legacy `report-uri` directive.
+  res.headers.set(
+    'Report-To',
+    JSON.stringify({
+      group: 'csp-endpoint',
+      max_age: 10886400,
+      endpoints: [{ url: '/api/security/csp-report' }],
+    }),
+  );
   // Don't leak the framework version.
   res.headers.delete('x-powered-by');
   res.headers.set('X-CSP-Nonce', nonce);
