@@ -27,9 +27,51 @@ export const users = sqliteTable('users', {
   email: text('email').notNull(),
   name: text('name').notNull(),
   passwordHash: text('password_hash').notNull(),
+  // Verification status. Unverified users can log in but are redirected to
+  // /verify-email until they confirm ownership of the inbox.
+  emailVerifiedAt: integer('email_verified_at'),
+  // 2FA: TOTP secret (encrypted) + enabled flag. We don't enforce 2FA by
+  // default — users opt in from settings, but once enabled it's required
+  // on every login.
+  totpSecretEncrypted: text('totp_secret_encrypted'),
+  totpEnabledAt: integer('totp_enabled_at'),
+  // Lockout: incremented on every failed login; cleared on success.
+  // When the counter hits FAILED_LOGIN_LOCK_THRESHOLD, further attempts
+  // are rejected until lockedUntil is in the past.
+  failedLoginCount: integer('failed_login_count').notNull().default(0),
+  lockedUntil: integer('locked_until'),
   createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
 }, (t) => ({
   emailIdx: uniqueIndex('users_email_idx').on(t.email),
+}));
+
+// One-time verification tokens for email confirmation, password reset, and
+// step-up auth flows. Short-lived and single-use.
+export const verificationTokens = sqliteTable('verification_tokens', {
+  id: text('id').primaryKey(),
+  // Hashed token — we never store the raw token.
+  tokenHash: text('token_hash').notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purpose: text('purpose', {
+    enum: ['email_verify', 'password_reset'],
+  }).notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  usedAt: integer('used_at'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  hashIdx: uniqueIndex('verification_tokens_hash_idx').on(t.tokenHash),
+  userPurposeIdx: index('verification_tokens_user_purpose_idx').on(t.userId, t.purpose),
+}));
+
+// One-time use backup codes for TOTP recovery.
+export const totpBackupCodes = sqliteTable('totp_backup_codes', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  codeHash: text('code_hash').notNull(),
+  usedAt: integer('used_at'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  userIdx: index('totp_backup_codes_user_idx').on(t.userId),
 }));
 
 export const memberships = sqliteTable('memberships', {

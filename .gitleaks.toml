@@ -1,0 +1,24 @@
+# Gitleaks config — layered on top of the default ruleset.
+# See https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+# for the rules we inherit.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist the dev-fallback secret and fixture tokens"
+regexes = [
+  # The dev-only AUTH_SECRET fallback — intentionally in-tree so the app
+  # still boots locally without env configuration.
+  "dev-fallback-secret-key-do-not-use-in-production-please",
+  # CI-only AUTH_SECRET used by the CI workflow.
+  "ci-test-secret-min-32-chars-long-enough-for-hs256-sign",
+  # bcrypt dummy hash for the constant-time login path.
+  "\\$2a\\$12\\$3oX9BpQJi1x1pQvr3v0ZJOE3XyO6M0cqiYqR1YxAqhtWQsE/bKZtu",
+]
+paths = [
+  '''node_modules/''',
+  '''coverage/''',
+  '''\.next/''',
+  '''package-lock\.json''',
+]

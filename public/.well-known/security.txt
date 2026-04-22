@@ -1,0 +1,9 @@
+Contact: https://github.com/theNeuralHorizon/claimrail/security/advisories/new
+Contact: mailto:security@claimrail.example
+Preferred-Languages: en
+Canonical: https://claimrail.io/.well-known/security.txt
+Policy: https://github.com/theNeuralHorizon/claimrail/blob/main/SECURITY.md
+Acknowledgments: https://github.com/theNeuralHorizon/claimrail/security/advisories
+# If you believe you have found a security vulnerability in ClaimRail,
+# please use GitHub's private vulnerability reporting to let us know. Do
+# not open a public issue.
