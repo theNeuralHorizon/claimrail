@@ -49,6 +49,10 @@ jobs:
           path: coverage
           retention-days: 14
 
+      - name: npm audit (production deps, high+ severity only)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
       - name: Build
         env:
           AUTH_SECRET: ci-test-secret-min-32-chars-long-enough-for-hs256-sign

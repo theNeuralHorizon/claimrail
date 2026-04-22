@@ -96,7 +96,7 @@ npm run prepare-data
 npm run dev
 
 # → http://localhost:3000
-# Demo login: demo@claimrail.io / demo1234
+# Demo login: demo@claimrail.io / DemoRail!2026
 ```
 
 ## Scripts

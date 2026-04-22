@@ -14,7 +14,7 @@ import { db, probes, vendors, incidents } from '@/lib/db/client';
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { consolidateIncidents } from '@/lib/sla/engine';
-import { validateProbeUrl } from './ssrf';
+import { assertHostResolvesPublicly, validateProbeUrl } from './ssrf';
 
 export interface ProbeResult {
   status: 'up' | 'degraded' | 'down';
@@ -39,6 +39,20 @@ export async function probeUrl(
         httpStatus: null,
         latencyMs: null,
         errorMessage: `URL rejected: ${check.reason}`,
+      };
+    }
+    // Resolve DNS and reject if any resolved IP is in a private range.
+    // Blocks DNS-rebinding attacks where foo.example.com points at 10.x.x.x.
+    try {
+      const hostname = new URL(url).hostname;
+      await assertHostResolvesPublicly(hostname);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'DNS guard failed';
+      return {
+        status: 'down',
+        httpStatus: null,
+        latencyMs: null,
+        errorMessage: `URL rejected: ${msg}`,
       };
     }
   }

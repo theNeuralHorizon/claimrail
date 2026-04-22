@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
-import { claims, vendors, auditEvents } from '@/lib/db/schema';
+import { claims, vendors } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
+import { guardMutation } from '@/lib/security/request-guard';
+import { appendAuditEvent } from '@/lib/audit/chain';
 
 const patchSchema = z.object({
   status: z.enum(['drafted', 'filed', 'acknowledged', 'recovered', 'rejected']).optional(),
@@ -16,6 +18,8 @@ interface Params {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const blocked = guardMutation(req);
+  if (blocked) return blocked;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { claimId } = params;
@@ -48,18 +52,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   await db.update(claims).set(patch).where(eq(claims.id, claimId)).run();
 
-  await db
-    .insert(auditEvents)
-    .values({
-      id: nanoid(16),
-      orgId: ctx.org.id,
-      actorId: ctx.user.id,
-      action: 'claim.update',
-      resource: 'claim',
-      resourceId: claimId,
-      metadataJson: JSON.stringify(patch),
-    })
-    .run();
+  await appendAuditEvent({
+    orgId: ctx.org.id,
+    actorId: ctx.user.id,
+    action: 'claim.update',
+    resource: 'claim',
+    resourceId: claimId,
+    metadata: patch,
+  });
 
   return NextResponse.json({ ok: true });
 }

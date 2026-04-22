@@ -1,21 +1,27 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db/client';
 import { sessions, users, memberships, orgs } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { createHash } from 'node:crypto';
 
-const COOKIE_NAME = 'claimrail_session';
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const COOKIE_NAME = '__Host-claimrail_session';
+const LEGACY_COOKIE_NAME = 'claimrail_session'; // read-only fallback
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days sliding
+const ABSOLUTE_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days absolute
+const JWT_ISSUER = 'claimrail';
+const JWT_AUDIENCE = 'claimrail-web';
 
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) {
-    // In dev we fall back to a predictable key so the app still runs, but in
-    // production this MUST be set.
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('AUTH_SECRET env var is required in production');
+      // In production this MUST be set to a real random string.
+      throw new Error(
+        'AUTH_SECRET env var must be set to at least 32 characters in production',
+      );
     }
     return new TextEncoder().encode(
       'dev-fallback-secret-key-do-not-use-in-production-please',
@@ -24,16 +30,37 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+function cookieIsSecure(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+function fingerprint(): string {
+  // Blake-style stable digest of UA + IP, used to bind a session to the
+  // originating client. Changes → session refused. Short enough to fit
+  // in a JWT claim without bloating it.
+  const h = headers();
+  const ua = h.get('user-agent') ?? '';
+  const ip =
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    h.get('x-real-ip') ??
+    '';
+  return createHash('sha256').update(`${ua}|${ip}`).digest('hex').slice(0, 24);
+}
+
 export interface SessionPayload {
-  sid: string; // session id in DB
-  uid: string; // user id
+  sid: string;
+  uid: string;
   email: string;
+  fp: string; // fingerprint
+  absExp: number; // absolute expiry (unix seconds)
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {
   const secret = getSecret();
   return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
     .sign(secret);
@@ -42,39 +69,62 @@ export async function signSession(payload: SessionPayload): Promise<string> {
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const secret = getSecret();
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
     if (
       typeof payload.sid !== 'string' ||
       typeof payload.uid !== 'string' ||
-      typeof payload.email !== 'string'
+      typeof payload.email !== 'string' ||
+      typeof payload.fp !== 'string' ||
+      typeof payload.absExp !== 'number'
     ) {
       return null;
     }
-    return { sid: payload.sid, uid: payload.uid, email: payload.email };
+    return {
+      sid: payload.sid,
+      uid: payload.uid,
+      email: payload.email,
+      fp: payload.fp,
+      absExp: payload.absExp,
+    };
   } catch {
     return null;
   }
 }
 
 export async function createSession(userId: string, email: string) {
+  const now = Math.floor(Date.now() / 1000);
   const sid = nanoid(24);
-  const expiresAt = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const expiresAt = now + SESSION_TTL_SECONDS;
+  const absExp = now + ABSOLUTE_TTL_SECONDS;
+  const fp = fingerprint();
   await db.insert(sessions).values({ id: sid, userId, expiresAt }).run();
-  const jwt = await signSession({ sid, uid: userId, email });
+  const jwt = await signSession({ sid, uid: userId, email, fp, absExp });
   const cookieStore = cookies();
+  // __Host- prefix requires: Secure + Path=/ + no Domain. Enforces origin.
   cookieStore.set(COOKIE_NAME, jwt, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieIsSecure(),
     path: '/',
     maxAge: SESSION_TTL_SECONDS,
   });
   return { sid, jwt };
 }
 
+function readSessionCookie(): string | undefined {
+  const cookieStore = cookies();
+  return (
+    cookieStore.get(COOKIE_NAME)?.value ??
+    cookieStore.get(LEGACY_COOKIE_NAME)?.value
+  );
+}
+
 export async function destroySession(): Promise<void> {
   const cookieStore = cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = readSessionCookie();
   if (token) {
     const payload = await verifySession(token);
     if (payload) {
@@ -82,6 +132,16 @@ export async function destroySession(): Promise<void> {
     }
   }
   cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(LEGACY_COOKIE_NAME);
+}
+
+export async function destroyAllSessionsForUser(): Promise<void> {
+  const ctx = await getAuthContext();
+  if (!ctx) return;
+  await db.delete(sessions).where(eq(sessions.userId, ctx.user.id)).run();
+  const cookieStore = cookies();
+  cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(LEGACY_COOKIE_NAME);
 }
 
 export interface AuthContext {
@@ -90,18 +150,24 @@ export interface AuthContext {
   role: 'owner' | 'admin' | 'member';
 }
 
-/**
- * Resolve the current session from the cookie. Returns null if unauthenticated.
- * Validates JWT + DB session row + user + picks the user's first org membership.
- */
 export async function getAuthContext(): Promise<AuthContext | null> {
-  const cookieStore = cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
+  const token = readSessionCookie();
   if (!token) return null;
   const payload = await verifySession(token);
   if (!payload) return null;
 
-  // Check DB session still valid
+  // Absolute expiry check — a sliding session can't live forever.
+  if (payload.absExp < Math.floor(Date.now() / 1000)) {
+    await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+    return null;
+  }
+
+  // Fingerprint check — binds session to originating UA + IP class.
+  if (payload.fp !== fingerprint()) {
+    await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+    return null;
+  }
+
   const sessionRow = await db
     .select()
     .from(sessions)
@@ -136,19 +202,12 @@ export async function getAuthContext(): Promise<AuthContext | null> {
   };
 }
 
-/**
- * Resolve auth, redirecting to /login if absent. Use in server components.
- */
 export async function requireAuth(): Promise<AuthContext> {
   const ctx = await getAuthContext();
   if (!ctx) redirect('/login');
   return ctx;
 }
 
-/**
- * Assert a user has access to a given org. Use in API routes for defense-
- * in-depth — most queries already filter by orgId, this adds belt+suspenders.
- */
 export async function assertOrgAccess(
   userId: string,
   orgId: string,

@@ -120,13 +120,34 @@ CREATE TABLE IF NOT EXISTS audit_events (
   resource TEXT NOT NULL,
   resource_id TEXT,
   metadata_json TEXT,
+  seq INTEGER NOT NULL DEFAULT 0,
+  prev_hash TEXT,
+  row_hash TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
+CREATE INDEX IF NOT EXISTS audit_org_seq_idx ON audit_events(org_id, seq);
 CREATE INDEX IF NOT EXISTS audit_org_time_idx ON audit_events(org_id, created_at);
 `;
 
+const MIGRATION_PATCHES = [
+  // Older DBs may not have the hash-chain columns. Add them if missing.
+  "ALTER TABLE audit_events ADD COLUMN seq INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE audit_events ADD COLUMN prev_hash TEXT",
+  "ALTER TABLE audit_events ADD COLUMN row_hash TEXT",
+];
+
 export async function migrate(): Promise<void> {
   await libsql.executeMultiple(SCHEMA_SQL);
+  // Apply forward-compatible ALTERs. Ignore errors for columns that already
+  // exist (SQLite raises "duplicate column name" on second run).
+  for (const stmt of MIGRATION_PATCHES) {
+    try {
+      await libsql.execute(stmt);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (!/duplicate column|already exists/i.test(msg)) throw err;
+    }
+  }
 }
 
 const invokedDirectly = process.argv[1]?.endsWith('migrate.ts');

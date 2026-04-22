@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
-import { vendors, slaTerms, incidents, claims, auditEvents } from '@/lib/db/schema';
+import { vendors, slaTerms, incidents, claims } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
@@ -11,6 +11,8 @@ import {
   detectBreach,
 } from '@/lib/sla/engine';
 import { generateClaim } from '@/lib/claims/generator';
+import { guardMutation } from '@/lib/security/request-guard';
+import { appendAuditEvent } from '@/lib/audit/chain';
 
 const schema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
@@ -21,6 +23,8 @@ interface Params {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const blocked = guardMutation(req);
+  if (blocked) return blocked;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { vendorId } = params;
@@ -125,22 +129,18 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
     .run();
 
-  await db
-    .insert(auditEvents)
-    .values({
-      id: nanoid(16),
-      orgId: ctx.org.id,
-      actorId: ctx.user.id,
-      action: 'claim.create',
-      resource: 'claim',
-      resourceId: id,
-      metadataJson: JSON.stringify({
-        vendorId: vendor.id,
-        period,
-        estimatedCreditCents: breach.estimatedCreditCents,
-      }),
-    })
-    .run();
+  await appendAuditEvent({
+    orgId: ctx.org.id,
+    actorId: ctx.user.id,
+    action: 'claim.create',
+    resource: 'claim',
+    resourceId: id,
+    metadata: {
+      vendorId: vendor.id,
+      period,
+      estimatedCreditCents: breach.estimatedCreditCents,
+    },
+  });
 
   return NextResponse.json({ id, estimatedCreditCents: breach.estimatedCreditCents });
 }

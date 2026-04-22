@@ -41,7 +41,7 @@ export function LoginForm() {
           required
           autoComplete="current-password"
           placeholder="••••••••"
-          defaultValue="demo1234"
+          defaultValue="DemoRail!2026"
         />
       </div>
       {state?.error ? (

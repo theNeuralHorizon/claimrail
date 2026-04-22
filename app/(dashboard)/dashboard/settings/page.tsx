@@ -2,12 +2,16 @@ import { requireAuth } from '@/lib/auth/session';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { logoutAllSessionsAction } from '@/lib/auth/actions';
+import { verifyAuditChain } from '@/lib/audit/chain';
 
 export const metadata = { title: 'Settings · ClaimRail' };
 
 export default async function SettingsPage() {
   const ctx = await requireAuth();
   const cronUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/cron/probes`;
+  const chainStatus = await verifyAuditChain(ctx.org.id);
   return (
     <div className="p-8 max-w-3xl space-y-6">
       <div>
@@ -57,6 +61,42 @@ export default async function SettingsPage() {
             <div>
               <Badge tone="info" className="capitalize">{ctx.role}</Badge>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Security</CardTitle>
+          <CardDescription>Session and audit-log controls.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-ink-900">
+                Sign out of all devices
+              </div>
+              <div className="text-xs text-ink-500">
+                Revoke every active session for your account, including this browser.
+              </div>
+            </div>
+            <form action={logoutAllSessionsAction}>
+              <Button type="submit" variant="outline" size="sm">
+                Log out everywhere
+              </Button>
+            </form>
+          </div>
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100">
+            <div>
+              <div className="text-sm font-medium text-ink-900">
+                Audit log integrity
+              </div>
+              <div className="text-xs text-ink-500">
+                {chainStatus.checked} events verified via hash chain.
+              </div>
+            </div>
+            <Badge tone={chainStatus.ok ? 'success' : 'danger'}>
+              {chainStatus.ok ? 'Intact' : `Broken at #${chainStatus.brokenAtIndex}`}
+            </Badge>
           </div>
         </CardContent>
       </Card>
