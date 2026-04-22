@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in ClaimRail isn't working as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: I expected X, but Y happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to `/dashboard/vendors/new`
+        2. Paste SLA text …
+        3. Click Parse
+        4. See error …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ClaimRail version / commit
+      placeholder: "e.g. main@7f00b8f"
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - SLA parser
+        - Probe engine
+        - Claim generator
+        - Dashboard UI
+        - Auth
+        - API / cron
+        - Other
+    validations:
+      required: true
