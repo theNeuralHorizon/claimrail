@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/session';
 import { db } from '@/lib/db/client';
-import { vendors, slaTerms, auditEvents } from '@/lib/db/schema';
+import { vendors, slaTerms } from '@/lib/db/schema';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { validateProbeUrl } from '@/lib/probes/ssrf';
+import { guardMutation } from '@/lib/security/request-guard';
+import { appendAuditEvent } from '@/lib/audit/chain';
 
 const tierSchema = z.object({
   uptimeThresholdPct: z.number().gt(0).lt(100),
@@ -31,6 +33,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const blocked = guardMutation(req);
+  if (blocked) return blocked;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.json().catch(() => ({}));
@@ -79,18 +83,14 @@ export async function POST(req: NextRequest) {
       .run();
   }
 
-  await db
-    .insert(auditEvents)
-    .values({
-      id: nanoid(16),
-      orgId: ctx.org.id,
-      actorId: ctx.user.id,
-      action: 'vendor.create',
-      resource: 'vendor',
-      resourceId: id,
-      metadataJson: JSON.stringify({ name: d.name, tierCount: d.tiers.length }),
-    })
-    .run();
+  await appendAuditEvent({
+    orgId: ctx.org.id,
+    actorId: ctx.user.id,
+    action: 'vendor.create',
+    resource: 'vendor',
+    resourceId: id,
+    metadata: { name: d.name, tierCount: d.tiers.length },
+  });
 
   return NextResponse.json({ id });
 }

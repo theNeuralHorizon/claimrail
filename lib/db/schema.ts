@@ -177,8 +177,17 @@ export const auditEvents = sqliteTable('audit_events', {
   resource: text('resource').notNull(),
   resourceId: text('resource_id'),
   metadataJson: text('metadata_json'),
+  // Strictly monotonic per-org sequence number. Used as the canonical
+  // ordering key for the hash chain (wall-clock timestamps aren't
+  // precise enough on fast consecutive inserts).
+  seq: integer('seq').notNull().default(0),
+  // Hash chain: prev_hash is the previous event's row_hash, row_hash is
+  // sha256(canonical(fields) || prev_hash). Any edit or deletion breaks it.
+  prevHash: text('prev_hash'),
+  rowHash: text('row_hash'),
   createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
 }, (t) => ({
+  orgSeqIdx: index('audit_org_seq_idx').on(t.orgId, t.seq),
   orgTimeIdx: index('audit_org_time_idx').on(t.orgId, t.createdAt),
 }));
 

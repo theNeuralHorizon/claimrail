@@ -125,7 +125,7 @@ async function main() {
 
   const orgId = nanoid(16);
   const userId = nanoid(16);
-  const passwordHash = await hashPassword('demo1234');
+  const passwordHash = await hashPassword('DemoRail!2026');
 
   await db.insert(orgs).values({ id: orgId, name: 'Acme Industries', slug: 'acme', plan: 'pro' }).run();
   await db.insert(users).values({ id: userId, email: demoEmail, name: 'Avery Kim', passwordHash }).run();
@@ -314,7 +314,7 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log('\n✓ Seed complete');
   // eslint-disable-next-line no-console
-  console.log('  Login with: demo@claimrail.io / demo1234\n');
+  console.log('  Login with: demo@claimrail.io / DemoRail!2026\n');
 }
 
 main()

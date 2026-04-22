@@ -19,6 +19,8 @@ export default defineConfig({
         'lib/probes/engine.ts',
         'lib/probes/ssrf.ts',
         'lib/auth/password.ts',
+        'lib/security/**/*.ts',
+        'lib/audit/**/*.ts',
       ],
       exclude: ['**/*.test.ts', '**/index.ts'],
       thresholds: {

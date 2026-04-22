@@ -18,6 +18,9 @@
  * and block based on the resolved IP. We document that trade-off.
  */
 
+import dns from 'node:dns/promises';
+import net from 'node:net';
+
 const BLOCKED_HOSTNAME_PATTERNS: RegExp[] = [
   /^localhost$/i,
   /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
@@ -37,6 +40,84 @@ const BLOCKED_HOSTNAME_PATTERNS: RegExp[] = [
 export interface UrlValidationResult {
   ok: boolean;
   reason?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP-level private-range detection. Used after DNS resolution to block
+// hostnames that resolve to any private / link-local / loopback / metadata
+// address. Covers both IPv4 and IPv6.
+// ─────────────────────────────────────────────────────────────────────────
+
+function ipv4InPrivateRange(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
+    return true; // malformed → treat as unsafe
+  }
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+  if (a === 198 && (b === 18 || b === 19)) return true; // RFC2544 benchmarks
+  if (a >= 224) return true; // multicast / reserved
+  return false;
+}
+
+function ipv6InPrivateRange(ip: string): boolean {
+  const normalized = ip.toLowerCase();
+  if (normalized === '::1' || normalized === '::') return true;
+  if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true; // ULA
+  if (normalized.startsWith('fe80:')) return true; // link-local
+  if (normalized.startsWith('ff')) return true; // multicast
+  if (normalized.startsWith('::ffff:')) {
+    // IPv4-mapped IPv6 — extract and re-check
+    const v4 = normalized.slice(7);
+    if (net.isIP(v4) === 4) return ipv4InPrivateRange(v4);
+  }
+  return false;
+}
+
+function ipInPrivateRange(ip: string): boolean {
+  const kind = net.isIP(ip);
+  if (kind === 4) return ipv4InPrivateRange(ip);
+  if (kind === 6) return ipv6InPrivateRange(ip);
+  return true;
+}
+
+/**
+ * Resolve a hostname via DNS and return the first A/AAAA address that
+ * indicates the host is public. Throws if any resolved address is private.
+ *
+ * Caller should invoke this just before the outbound fetch so we catch
+ * hostnames that resolve to private IPs (common DNS-rebinding scenarios).
+ */
+export async function assertHostResolvesPublicly(hostname: string): Promise<void> {
+  // Short-circuit if hostname is a literal IP — covered by validateProbeUrl.
+  if (net.isIP(hostname)) {
+    if (ipInPrivateRange(hostname)) {
+      throw new Error(`IP ${hostname} is in a private range`);
+    }
+    return;
+  }
+  let addresses: string[];
+  try {
+    const result = await dns.lookup(hostname, { all: true, verbatim: true });
+    addresses = result.map((r) => r.address);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'DNS lookup failed';
+    throw new Error(`DNS lookup failed: ${msg}`);
+  }
+  if (addresses.length === 0) {
+    throw new Error('Hostname has no DNS records');
+  }
+  for (const addr of addresses) {
+    if (ipInPrivateRange(addr)) {
+      throw new Error(`Hostname ${hostname} resolves to private IP ${addr}`);
+    }
+  }
 }
 
 export function validateProbeUrl(input: string): UrlValidationResult {

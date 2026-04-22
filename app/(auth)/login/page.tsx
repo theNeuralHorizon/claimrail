@@ -17,7 +17,7 @@ export default function LoginPage() {
       </div>
       <LoginForm />
       <div className="rounded-lg border border-dashed border-brand-200 bg-brand-50/40 p-3 text-xs text-brand-900">
-        <b>Demo account:</b> demo@claimrail.io / demo1234
+        <b>Demo account:</b> demo@claimrail.io / DemoRail!2026
       </div>
     </div>
   );

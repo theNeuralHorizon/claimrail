@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext } from '@/lib/auth/session';
 import { parseSla } from '@/lib/ai/sla-parser';
 import { rateLimit } from '@/lib/rate-limit';
+import { guardMutation } from '@/lib/security/request-guard';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -9,6 +10,8 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const blocked = guardMutation(req);
+  if (blocked) return blocked;
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -5,12 +5,16 @@ import { vendors } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { probeUrl, recordProbe, reconcileIncidents } from '@/lib/probes/engine';
 import { rateLimit } from '@/lib/rate-limit';
+import { guardMutation } from '@/lib/security/request-guard';
 
 interface Params {
   params: { vendorId: string };
 }
 
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
+  // Probe with empty body is OK, but we still want Origin/Referer enforcement.
+  const blocked = guardMutation(req, { allowAnyContentType: true });
+  if (blocked) return blocked;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { vendorId } = params;
