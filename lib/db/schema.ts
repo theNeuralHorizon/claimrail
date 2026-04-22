@@ -63,6 +63,47 @@ export const verificationTokens = sqliteTable('verification_tokens', {
   userPurposeIdx: index('verification_tokens_user_purpose_idx').on(t.userId, t.purpose),
 }));
 
+// Password history — used to block reuse of the last N passwords.
+export const passwordHistory = sqliteTable('password_history', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  userIdx: index('password_history_user_idx').on(t.userId, t.createdAt),
+}));
+
+// Short-lived record of accepted TOTP steps per user, so the same 6-digit
+// code can't be replayed within its ±1-step acceptance window.
+export const totpReplayNonces = sqliteTable('totp_replay_nonces', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  step: integer('step').notNull(),
+  acceptedAt: integer('accepted_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  userStepIdx: uniqueIndex('totp_replay_user_step_idx').on(t.userId, t.step),
+}));
+
+// Security events (distinct from the audit log — audit records successful
+// state transitions; security events record attacks, anomalies, and
+// defense triggers).
+export const securityEvents = sqliteTable('security_events', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').references(() => orgs.id, { onDelete: 'cascade' }),
+  userId: text('user_id'),
+  kind: text('kind').notNull(),
+  severity: text('severity', { enum: ['info', 'warn', 'high', 'critical'] }).notNull().default('info'),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  country: text('country'),
+  metadataJson: text('metadata_json'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  orgTimeIdx: index('security_events_org_time_idx').on(t.orgId, t.createdAt),
+  kindIdx: index('security_events_kind_idx').on(t.kind),
+  userIdx: index('security_events_user_idx').on(t.userId),
+}));
+
 // One-time use backup codes for TOTP recovery.
 export const totpBackupCodes = sqliteTable('totp_backup_codes', {
   id: text('id').primaryKey(),

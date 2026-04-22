@@ -130,13 +130,18 @@ export function validateProbeUrl(input: string): UrlValidationResult {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     return { ok: false, reason: `Protocol ${url.protocol} is not allowed (use http/https)` };
   }
-  // In production we require HTTPS for probes — but allow http on localhost
-  // for tests. This guard runs before the localhost check so ordering matters.
-  const hostname = url.hostname;
+  // `url.hostname` returns IPv6 addresses wrapped in square brackets —
+  // strip them so the literal-IPv6 regexes below match.
+  const hostname = url.hostname.replace(/^\[|\]$/g, '');
   for (const re of BLOCKED_HOSTNAME_PATTERNS) {
     if (re.test(hostname)) {
       return { ok: false, reason: `Hostname ${hostname} is not publicly reachable` };
     }
+  }
+  // If it's a bare IPv6 literal, re-check against the IP-range helpers
+  // directly so short forms like `::` aren't missed.
+  if (net.isIP(hostname) === 6 && ipv6InPrivateRange(hostname)) {
+    return { ok: false, reason: `IPv6 ${hostname} is in a private range` };
   }
   // Block ports commonly used for internal services, even on public IPs
   const port = Number(url.port);

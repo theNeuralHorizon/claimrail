@@ -1,3 +1,7 @@
+// Side-effect import: freezes Object.prototype etc. at boot to neutralise
+// prototype-pollution payloads before any JSON is parsed server-side.
+import '@/lib/security/freeze';
+
 import { createClient, type Client } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './schema';
