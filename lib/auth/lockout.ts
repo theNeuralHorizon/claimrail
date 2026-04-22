@@ -18,7 +18,7 @@
  */
 import { db } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 const LOCK_THRESHOLD = 5;
 const BASE_LOCK_SECONDS = 60 * 5; // 5 min

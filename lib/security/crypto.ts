@@ -74,20 +74,56 @@ export function decryptFromJson(json: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Token helpers (email verification, password reset).
+// Token helpers (email verification, password reset, backup codes).
 //
-// We generate a random 32-byte token, show it once in the email link,
-// and persist only sha256(token) + user id. This means a DB leak can't be
-// used to forge working tokens.
+// `generateRandomToken` produces a high-entropy (>= 256-bit) random string
+// suitable for a single-use credential. The token is shown once (e.g. in
+// an email link) and never persisted as-is.
+//
+// We store only `digestToken(raw)` — an HMAC-SHA-256 using a pepper
+// derived from AUTH_SECRET. This gives us two useful properties:
+//   1. Rainbow tables / precomputation are useless — the attacker needs
+//      AUTH_SECRET to compute any candidate digest.
+//   2. A DB leak alone cannot be used to forge or confirm tokens.
+//
+// We deliberately do NOT use bcrypt/argon2 here: these are high-entropy
+// random tokens, not user-chosen passwords. Slow hashes add no meaningful
+// security margin against a 256-bit random input and would add
+// unacceptable latency to token lookup.
 // ─────────────────────────────────────────────────────────────────────────
+
+function tokenPepper(): Buffer {
+  const secret = process.env.AUTH_SECRET ?? '';
+  if (secret.length < 32 && process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SECRET must be set (≥32 chars) for token digesting');
+  }
+  // Derive a stable 32-byte HMAC key from AUTH_SECRET + a domain label.
+  return createHash('sha256')
+    .update(secret || 'dev-fallback-secret-key-do-not-use-in-production-please')
+    .update('|token-digest-pepper')
+    .digest();
+}
 
 export function generateRandomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
 }
 
-export function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
+/**
+ * Compute the persisted digest of a high-entropy token. Uses HMAC-SHA-256
+ * with a server-side pepper so a DB leak by itself cannot confirm tokens.
+ *
+ * NOTE: Do not use this for user-chosen passwords. Use `bcrypt` from
+ * `@/lib/auth/password` for those — they need slow hashing.
+ */
+export function digestToken(token: string): string {
+  return createHmac('sha256', tokenPepper()).update(token).digest('hex');
 }
+
+/**
+ * @deprecated alias retained for backwards compatibility during migration.
+ *             New call sites should use `digestToken`.
+ */
+export const hashToken = digestToken;
 
 export function constantTimeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
