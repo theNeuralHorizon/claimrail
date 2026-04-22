@@ -1,0 +1,10 @@
+# Default ownership — every PR needs review from a maintainer.
+*       @theNeuralHorizon
+
+# SLA engine is load-bearing — any change needs extra scrutiny.
+/lib/sla/               @theNeuralHorizon
+/lib/claims/            @theNeuralHorizon
+/lib/probes/            @theNeuralHorizon
+
+# CI / release plumbing.
+/.github/               @theNeuralHorizon
