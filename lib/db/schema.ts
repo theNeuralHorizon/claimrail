@@ -159,6 +159,25 @@ export const memberships = sqliteTable('memberships', {
   orgIdx: index('memberships_org_idx').on(t.orgId),
 }));
 
+// Pending invitations — single-use token bound to an email + role.
+// Accepting an invite either signs the recipient up fresh or (if they
+// already have a ClaimRail account) adds the membership row directly.
+export const invitations = sqliteTable('invitations', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  role: text('role', { enum: ['admin', 'member'] }).notNull().default('member'),
+  tokenHash: text('token_hash').notNull(),
+  invitedBy: text('invited_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at').notNull(),
+  acceptedAt: integer('accepted_at'),
+  revokedAt: integer('revoked_at'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  hashIdx: uniqueIndex('invitations_hash_idx').on(t.tokenHash),
+  orgEmailIdx: index('invitations_org_email_idx').on(t.orgId, t.email),
+}));
+
 // ─────────────────────────────────────────────────────────────────────────
 // Vendors — the SaaS tools the customer uses and wants SLAs monitored for.
 // ─────────────────────────────────────────────────────────────────────────
