@@ -30,6 +30,9 @@ export interface ApiTokenRow {
   scope: 'read' | 'write';
   createdAt: number;
   lastUsedAt: number | null;
+  /** Server-formatted human label for lastUsedAt — precomputed so we
+   *  don't hit a hydration mismatch from locale-dependent Date rendering. */
+  lastUsedLabel: string;
   revokedAt: number | null;
 }
 
@@ -142,9 +145,7 @@ export function ApiTokensSection({ tokens }: { tokens: ApiTokenRow[] }) {
                     </Badge>
                   </td>
                   <td className="px-4 py-2 text-xs text-ink-500">
-                    {t.lastUsedAt
-                      ? new Date(t.lastUsedAt * 1000).toLocaleString()
-                      : 'never'}
+                    {t.lastUsedLabel}
                   </td>
                   <td className="px-4 py-2 text-right">
                     {t.revokedAt == null ? (

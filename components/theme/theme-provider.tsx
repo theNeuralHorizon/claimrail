@@ -110,16 +110,7 @@ export function useTheme(): ThemeCtx {
   return ctx;
 }
 
-/**
- * Inline script injected in the <head> to set the initial class before
- * React hydrates. Prevents a light→dark flash on dark-mode machines.
- */
-export const THEME_BOOT_SCRIPT = `
-try {
-  var stored = localStorage.getItem('${STORAGE_KEY}');
-  var mode = stored === 'light' || stored === 'dark' ? stored : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  var el = document.documentElement;
-  if (mode === 'dark') el.classList.add('dark');
-  el.style.colorScheme = mode;
-} catch (e) {}
-`;
+// Theme bootstrap that runs before React hydrates lives at
+// `public/theme-boot.js` — served as a static file so strict CSP doesn't
+// have to open a hole for inline scripts. Keep STORAGE_KEY in sync with
+// that file if you change it.

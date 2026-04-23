@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import { ThemeProvider, THEME_BOOT_SCRIPT } from '@/components/theme/theme-provider';
+import { ThemeProvider } from '@/components/theme/theme-provider';
 
 export const metadata: Metadata = {
   title: 'ClaimRail — Recover unclaimed SaaS SLA credits, automatically',
@@ -26,12 +27,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Apply stored/system theme BEFORE React hydrates so we don't
-            flash the wrong palette. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-      </head>
       <body className="bg-ink-50 text-ink-900 dark:bg-ink-950 dark:text-ink-100">
+        {/*
+         * Theme bootstrap — applies `html.dark` before first paint so we
+         * don't flash the wrong palette. `beforeInteractive` is the only
+         * strategy that guarantees execution before React hydration, and
+         * it requires the script to live in the root layout.
+         */}
+        <Script src="/theme-boot.js" strategy="beforeInteractive" />
         <ThemeProvider>
           <Toaster
             position="bottom-right"
