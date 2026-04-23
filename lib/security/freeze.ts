@@ -31,15 +31,23 @@ export function freezeGlobalPrototypes(): void {
   }
 }
 
-// Auto-run when this module is imported. Skip during tests because some
-// test runners (tinypool workers, happy-dom) internally mutate the proto
-// chain to set up the DOM shim and would crash with "cannot assign to
-// read-only property". In production and dev the freeze is active.
+/**
+ * Auto-run policy: freeze ONLY in production runtime.
+ *
+ * Historical pain points:
+ *   - Vitest + happy-dom mutate proto chains to install the DOM shim.
+ *   - `next build`'s static route analysis mutates prototypes too.
+ *   - `next dev`'s HMR / error-overlay patches prototypes on first import
+ *     — freeze → overlay crashes → every route 500s in dev.
+ *
+ * None of those ship to production. The defense we care about is against
+ * prototype-pollution via JSON bodies at RUNTIME — which is exactly the
+ * environment where the freeze stays on.
+ */
 function shouldFreezeNow(): boolean {
   if (process.env.VITEST) return false;
-  if (process.env.NODE_ENV === 'test') return false;
-  // Next's build phase statically analyses routes and mutates prototypes
-  // internally — freezing breaks `next build`. Only freeze at runtime.
+  if (process.env.NODE_ENV !== 'production') return false;
+  // Next build is NODE_ENV=production but still runs the static analyser.
   if (process.env.NEXT_PHASE === 'phase-production-build') return false;
   return true;
 }
