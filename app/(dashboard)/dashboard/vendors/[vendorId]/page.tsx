@@ -40,13 +40,13 @@ export default async function VendorDetailPage({ params }: Params) {
       <div>
         <Link
           href="/dashboard/vendors"
-          className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900 mb-3"
+          className="inline-flex items-center gap-1 text-sm text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100 mb-3"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Vendors
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight text-ink-900 flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100 flex items-center gap-3">
               <StatusDot status={latest as 'up' | 'degraded' | 'down' | 'unknown'} />
               {vendor.name}
             </h1>
@@ -54,7 +54,7 @@ export default async function VendorDetailPage({ params }: Params) {
               href={vendor.monitorUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-ink-500 hover:text-ink-900 inline-flex items-center gap-1"
+              className="text-sm text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100 inline-flex items-center gap-1"
             >
               {vendor.monitorUrl} <ExternalLink className="h-3 w-3" />
             </a>
@@ -128,11 +128,11 @@ export default async function VendorDetailPage({ params }: Params) {
             </CardHeader>
             <CardContent className="p-0">
               {incidents.length === 0 ? (
-                <div className="p-6 text-center text-sm text-ink-500">
+                <div className="p-6 text-center text-sm text-ink-500 dark:text-ink-400">
                   No incidents in the last 90 days. 🎉
                 </div>
               ) : (
-                <ul className="divide-y divide-ink-100 max-h-[400px] overflow-y-auto">
+                <ul className="divide-y divide-ink-100 dark:divide-ink-800 max-h-[400px] overflow-y-auto">
                   {incidents.map((i) => {
                     const tone =
                       i.severity === 'critical'
@@ -141,13 +141,13 @@ export default async function VendorDetailPage({ params }: Params) {
                           ? 'warn'
                           : 'info';
                     return (
-                      <li key={i.id} className="px-6 py-3 hover:bg-ink-50/60">
+                      <li key={i.id} className="px-6 py-3 hover:bg-ink-50/60 dark:hover:bg-ink-800/40">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="text-sm font-medium text-ink-900 truncate">
+                            <div className="text-sm font-medium text-ink-900 dark:text-ink-100 truncate">
                               {i.summary}
                             </div>
-                            <div className="text-xs text-ink-500">
+                            <div className="text-xs text-ink-500 dark:text-ink-400">
                               {formatDistanceToNow(new Date(i.startedAt * 1000), {
                                 addSuffix: true,
                               })}{' '}
@@ -175,24 +175,24 @@ export default async function VendorDetailPage({ params }: Params) {
             </CardHeader>
             <CardContent className="p-0">
               {tiers.length === 0 ? (
-                <div className="p-5 text-sm text-ink-500">No tiers configured.</div>
+                <div className="p-5 text-sm text-ink-500 dark:text-ink-400">No tiers configured.</div>
               ) : (
-                <ul className="divide-y divide-ink-100">
+                <ul className="divide-y divide-ink-100 dark:divide-ink-800">
                   {tiers.map((t) => {
                     const active =
                       breach.hasBreach && breach.threshold === t.uptimeThresholdPct;
                     return (
                       <li
                         key={t.id}
-                        className={`px-5 py-3 ${active ? 'bg-brand-50/40' : ''}`}
+                        className={`px-5 py-3 ${active ? 'bg-brand-50/40 dark:bg-brand-500/10' : ''}`}
                       >
                         <div className="flex items-center justify-between text-sm">
                           <div>
-                            <span className="font-mono text-ink-900">
+                            <span className="font-mono text-ink-900 dark:text-ink-100">
                               &lt; {t.uptimeThresholdPct}%
                             </span>
-                            <span className="text-ink-500 mx-2">→</span>
-                            <span className="font-mono text-brand-700">
+                            <span className="text-ink-500 dark:text-ink-400 mx-2">→</span>
+                            <span className="font-mono text-brand-700 dark:text-brand-400">
                               {t.creditPct}% credit
                             </span>
                           </div>
@@ -201,7 +201,7 @@ export default async function VendorDetailPage({ params }: Params) {
                           ) : null}
                         </div>
                         {t.sourceExcerpt ? (
-                          <div className="text-xs text-ink-500 mt-1 italic truncate">
+                          <div className="text-xs text-ink-500 dark:text-ink-400 mt-1 italic truncate">
                             "{t.sourceExcerpt}"
                           </div>
                         ) : null}
@@ -219,9 +219,9 @@ export default async function VendorDetailPage({ params }: Params) {
             </CardHeader>
             <CardContent className="p-0">
               {claims.length === 0 ? (
-                <div className="p-5 text-sm text-ink-500">No claims yet.</div>
+                <div className="p-5 text-sm text-ink-500 dark:text-ink-400">No claims yet.</div>
               ) : (
-                <ul className="divide-y divide-ink-100">
+                <ul className="divide-y divide-ink-100 dark:divide-ink-800">
                   {claims.map((c) => {
                     const tone =
                       c.status === 'recovered'
@@ -235,13 +235,13 @@ export default async function VendorDetailPage({ params }: Params) {
                       <li key={c.id} className="px-5 py-3">
                         <Link
                           href={`/dashboard/claims/${c.id}`}
-                          className="flex items-center justify-between gap-3 hover:bg-ink-50/60 -mx-5 px-5 py-2 rounded-lg"
+                          className="flex items-center justify-between gap-3 hover:bg-ink-50/60 dark:hover:bg-ink-800/40 -mx-5 px-5 py-2 rounded-lg"
                         >
                           <div>
-                            <div className="text-sm font-medium text-ink-900">
+                            <div className="text-sm font-medium text-ink-900 dark:text-ink-100">
                               {c.period} · {formatCents(c.estimatedCreditCents)}
                             </div>
-                            <div className="text-xs text-ink-500 capitalize">
+                            <div className="text-xs text-ink-500 dark:text-ink-400 capitalize">
                               {formatUptime(c.measuredUptimePct)} uptime · {c.creditPct}% credit tier
                             </div>
                           </div>
