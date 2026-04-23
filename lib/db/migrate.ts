@@ -116,6 +116,21 @@ CREATE TABLE IF NOT EXISTS memberships (
 CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_org_idx ON memberships(user_id, org_id);
 CREATE INDEX IF NOT EXISTS memberships_org_idx ON memberships(org_id);
 
+CREATE TABLE IF NOT EXISTS invitations (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'member',
+  token_hash TEXT NOT NULL,
+  invited_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL,
+  accepted_at INTEGER,
+  revoked_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE UNIQUE INDEX IF NOT EXISTS invitations_hash_idx ON invitations(token_hash);
+CREATE INDEX IF NOT EXISTS invitations_org_email_idx ON invitations(org_id, email);
+
 CREATE TABLE IF NOT EXISTS vendors (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,

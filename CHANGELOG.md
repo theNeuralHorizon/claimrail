@@ -2,7 +2,37 @@
 
 Reverse-chronological; each entry maps to a merged PR.
 
-## Unreleased — product-v3
+## Unreleased — product-v4
+
+**Added**
+
+- **Team invitations.** Owners/admins invite a teammate by email + role;
+  the link is single-use, HMAC-digested, 7-day TTL, revokable. Accept flow
+  handles both existing ClaimRail users (one-click membership add) and
+  brand-new signups (pre-filled email).
+- **Team management UI** at `/dashboard/settings/team`. Member table with
+  inline role changes (owner-only), remove, and a pending-invites list.
+- **Recovery chart** on the dashboard overview. Last 6 months of filed vs
+  actually-recovered credits as a stacked bar chart. Empty-state guard.
+- **Onboarding checklist** at the top of a fresh org's dashboard — verify
+  email, add first vendor, parse SLA, connect Slack, invite teammate,
+  turn on 2FA. Disappears once every box is ticked.
+- **REST v1 expansion**:
+  - `GET /api/v1/claims` — list every claim in the org (read scope).
+  - `POST /api/v1/vendors` — create a vendor with tiers (requires
+    **write-scope** token). Strict schema, SSRF guard, sanitized text.
+- **OpenAPI 3.1 spec** served at `/api/openapi.json`.
+- **Public API reference** at `/api-docs` — server-rendered, CSP-safe,
+  zero-JS. Copy-paste curl examples.
+
+**Tests (+14, 195 total)**
+
+- `invitations.test.ts` — issue / resolve / consume / revoke idempotency,
+  cross-tenant safe, existing-user attach vs fresh signup.
+- `recovery.test.ts` — monthly bucket math, zero-padding for empty months,
+  empty-org returns all zeros.
+
+## 2026-04-23 — PR #13 — product-v3 — dark mode, Cmd+K, Slack, API tokens, PDF, Docker
 
 **Added**
 

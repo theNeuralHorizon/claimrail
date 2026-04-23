@@ -3,7 +3,13 @@ import {
   getDashboardSummary,
   getRecentIncidents,
   getVendorOverviews,
+  getMonthlyRecovery,
 } from '@/lib/queries';
+import { RecoveryChart } from '@/components/features/recovery-chart';
+import { OnboardingChecklist, type OnboardingStep } from '@/components/features/onboarding';
+import { db } from '@/lib/db/client';
+import { integrations, memberships, users } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { Stat } from '@/components/ui/stat';
 import { Badge, StatusDot } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +41,71 @@ export default async function DashboardPage() {
   const summary = await getDashboardSummary(ctx.org.id);
   const overviews = await getVendorOverviews(ctx.org.id);
   const recentIncidents = await getRecentIncidents(ctx.org.id, 6);
+  const recovery = await getMonthlyRecovery(ctx.org.id, 6);
+
+  // Onboarding signals — each is either true or we nudge the user to finish.
+  const slackRow = await db
+    .select()
+    .from(integrations)
+    .where(
+      and(
+        eq(integrations.orgId, ctx.org.id),
+        eq(integrations.kind, 'slack_webhook'),
+        eq(integrations.enabled, true),
+      ),
+    )
+    .get();
+  const memberCount = await db
+    .select()
+    .from(memberships)
+    .where(eq(memberships.orgId, ctx.org.id))
+    .all();
+  const me = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+
+  const onboarding: OnboardingStep[] = [
+    {
+      id: 'verify',
+      label: 'Verify your email',
+      hint: 'We sent you a link when you signed up.',
+      href: '/dashboard/settings',
+      done: me?.emailVerifiedAt != null,
+    },
+    {
+      id: 'vendor',
+      label: 'Add your first vendor',
+      hint: 'Paste an SLA and we\'ll parse the tiers.',
+      href: '/dashboard/vendors/new',
+      done: overviews.length > 0,
+    },
+    {
+      id: 'sla',
+      label: 'Parse your first SLA',
+      hint: 'At least one vendor with a tier configured.',
+      href: '/dashboard/vendors',
+      done: overviews.some((o) => o.tiers.length > 0),
+    },
+    {
+      id: 'slack',
+      label: 'Connect Slack',
+      hint: 'Get pinged the moment a claim is drafted.',
+      href: '/dashboard/settings',
+      done: slackRow != null,
+    },
+    {
+      id: 'team',
+      label: 'Invite a teammate',
+      hint: 'Finance, procurement, or the person who wants the money back.',
+      href: '/dashboard/settings/team',
+      done: memberCount.length > 1,
+    },
+    {
+      id: 'twofa',
+      label: 'Turn on two-factor auth',
+      hint: 'Protects your account if a password leaks.',
+      href: '/dashboard/settings',
+      done: me?.totpEnabledAt != null,
+    },
+  ];
 
   return (
     <div className="p-8 space-y-6">
@@ -43,6 +114,8 @@ export default async function DashboardPage() {
         subtitle={`${summary.period} · ${ctx.org.name}`}
         period={summary.period}
       />
+
+      <OnboardingChecklist steps={onboarding} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat
@@ -76,6 +149,18 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recovery over time</CardTitle>
+              <CardDescription>
+                Credits filed (grey) vs. actually recovered (green), last 6 months.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecoveryChart data={recovery} />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex items-start justify-between flex-row">
               <div>

@@ -184,6 +184,18 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Team</CardTitle>
+          <CardDescription>Invite teammates and manage roles.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard/settings/team">
+            <Button variant="outline" size="sm">Manage team →</Button>
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Slack alerts</CardTitle>
           <CardDescription>
             {slackRow ? 'Connected. Sending alerts to your workspace.' : 'Get an alert in Slack on breaches, claim drafts, and anomalies.'}

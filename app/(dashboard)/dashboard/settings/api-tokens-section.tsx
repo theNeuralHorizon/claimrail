@@ -168,7 +168,10 @@ export function ApiTokensSection({ tokens }: { tokens: ApiTokenRow[] }) {
         </table>
       </div>
       <div className="text-xs text-ink-500 dark:text-ink-400">
-        Use like: <code className="font-mono bg-ink-100 dark:bg-ink-800 px-1 py-0.5 rounded">curl -H &quot;Authorization: Bearer crt_…&quot; /api/v1/vendors</code>
+        Use like: <code className="font-mono bg-ink-100 dark:bg-ink-800 px-1 py-0.5 rounded">curl -H &quot;Authorization: Bearer crt_…&quot; /api/v1/vendors</code> —{' '}
+        <a href="/api-docs" target="_blank" rel="noreferrer" className="text-brand-700 dark:text-brand-300 hover:underline">
+          full API reference →
+        </a>
       </div>
     </div>
   );

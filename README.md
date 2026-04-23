@@ -66,7 +66,8 @@ The result: companies leave **$60K–$400K a year on the table** in recoverable 
 ### Integrations + API
 
 - ✅ **Slack webhooks** · encrypted at rest, fires on claim draft and anomaly detection
-- ✅ **REST API v1** · `GET /api/v1/vendors` with bearer-token auth and per-token rate limits
+- ✅ **REST API v1** · `GET /api/v1/vendors`, `POST /api/v1/vendors` (write scope), `GET /api/v1/claims` — bearer-token auth, per-token rate limits
+- ✅ **OpenAPI 3.1 spec** at `/api/openapi.json` + public API reference at `/api-docs`
 - ✅ **Scheduler-friendly** · one cron endpoint, shared-secret auth
 
 ### Security + ops
@@ -83,7 +84,14 @@ The result: companies leave **$60K–$400K a year on the table** in recoverable 
 - ✅ **Command palette** (`⌘K`) with fuzzy search over vendors, claims, and pages
 - ✅ **Live notifications bell** pulling from the security-event stream
 - ✅ **7-day uptime sparklines** on every vendor card
+- ✅ **6-month recovery chart** on the dashboard (filed vs. actually collected)
+- ✅ **Onboarding checklist** for new orgs — 6 steps, auto-dismisses when done
 - ✅ **Public `/status` page** · same checks as `/api/health`, auto-refreshes
+
+### Team
+
+- ✅ **Invitations** · invite by email + role, 7-day single-use links, revokable
+- ✅ **Member management** · inline role changes, remove members, "last owner" guard
 
 ## Tech stack
 

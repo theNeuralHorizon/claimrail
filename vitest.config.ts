@@ -23,8 +23,11 @@ export default defineConfig({
         'lib/auth/totp-nonce.ts',
         'lib/auth/tokens.ts',
         'lib/auth/lockout.ts',
+        'lib/auth/invitations.ts',
+        'lib/auth/api-tokens.ts',
         'lib/security/**/*.ts',
         'lib/audit/**/*.ts',
+        'lib/integrations/slack.ts',
       ],
       exclude: ['**/*.test.ts', '**/index.ts'],
       thresholds: {

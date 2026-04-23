@@ -280,6 +280,57 @@ export async function getDailyUptime(
   return out;
 }
 
+/**
+ * Monthly recovery rollup for the org — last `months` periods. Buckets
+ * claims by filing/recovery month so the dashboard can draw a
+ * "how much did we file vs. actually collect" stacked bar chart.
+ */
+export async function getMonthlyRecovery(
+  orgId: string,
+  months = 6,
+): Promise<Array<{ period: string; filedCents: number; recoveredCents: number; count: number }>> {
+  // Build the list of period labels we care about, oldest → newest.
+  const now = new Date();
+  const periods: string[] = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    periods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  const rows = await db
+    .select({
+      period: claims.period,
+      status: claims.status,
+      estimatedCreditCents: claims.estimatedCreditCents,
+      recoveredCents: claims.recoveredCents,
+    })
+    .from(claims)
+    .innerJoin(vendors, eq(claims.vendorId, vendors.id))
+    .where(eq(vendors.orgId, orgId))
+    .all();
+  const byPeriod = new Map<string, { filed: number; recovered: number; count: number }>();
+  for (const p of periods) byPeriod.set(p, { filed: 0, recovered: 0, count: 0 });
+  for (const r of rows) {
+    const bucket = byPeriod.get(r.period);
+    if (!bucket) continue; // outside the requested window
+    bucket.count += 1;
+    if (['filed', 'acknowledged', 'recovered', 'rejected'].includes(r.status)) {
+      bucket.filed += r.estimatedCreditCents;
+    }
+    if (r.status === 'recovered') {
+      bucket.recovered += r.recoveredCents ?? 0;
+    }
+  }
+  return periods.map((p) => {
+    const b = byPeriod.get(p)!;
+    return {
+      period: p,
+      filedCents: b.filed,
+      recoveredCents: b.recovered,
+      count: b.count,
+    };
+  });
+}
+
 export async function getVendorDetail(orgId: string, vendorId: string) {
   const vendor = await db
     .select()
