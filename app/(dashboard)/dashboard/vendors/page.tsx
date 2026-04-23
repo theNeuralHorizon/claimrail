@@ -25,8 +25,8 @@ export default async function VendorsPage() {
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Vendors</h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">Vendors</h1>
+          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
             {overviews.length} vendor{overviews.length === 1 ? '' : 's'} · monitored 24/7
           </p>
         </div>
@@ -40,8 +40,8 @@ export default async function VendorsPage() {
       {overviews.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <div className="text-ink-700 text-lg font-medium">No vendors yet</div>
-            <div className="mt-2 text-ink-500 text-sm max-w-md mx-auto">
+            <div className="text-ink-700 dark:text-ink-200 text-lg font-medium">No vendors yet</div>
+            <div className="mt-2 text-ink-500 dark:text-ink-400 text-sm max-w-md mx-auto">
               Add your first vendor — paste its SLA and we'll start probing its status URL every 5 minutes.
             </div>
             <Link href="/dashboard/vendors/new" className="mt-5 inline-block">
@@ -61,7 +61,7 @@ export default async function VendorsPage() {
               : 'success';
             return (
               <Link key={o.vendor.id} href={`/dashboard/vendors/${o.vendor.id}`}>
-                <Card className="hover:shadow-md hover:border-ink-300 transition-all h-full">
+                <Card className="hover:shadow-md hover:border-ink-300 dark:hover:border-ink-700 transition-all h-full">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -107,7 +107,7 @@ export default async function VendorsPage() {
                         }
                       />
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-ink-100">
+                    <div className="flex items-center justify-between pt-2 border-t border-ink-100 dark:border-ink-800">
                       <Badge tone="neutral">
                         {o.tiers.length} SLA tier{o.tiers.length === 1 ? '' : 's'}
                       </Badge>

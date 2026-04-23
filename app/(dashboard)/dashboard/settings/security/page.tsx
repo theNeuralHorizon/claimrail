@@ -44,16 +44,16 @@ export default async function SecurityPage() {
       <div>
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900 mb-3"
+          className="inline-flex items-center gap-1 text-sm text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100 mb-3"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Settings
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               Security events
             </h1>
-            <p className="text-sm text-ink-500 mt-1">
+            <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
               Adversarial activity and defense triggers. Distinct from the audit log, which
               covers successful state changes.
             </p>
@@ -62,11 +62,11 @@ export default async function SecurityPage() {
       </div>
 
       {killed.length > 0 ? (
-        <div className="rounded-xl border border-red-200 bg-danger-50 p-4 flex items-center gap-3">
-          <ShieldAlert className="h-5 w-5 text-danger-600" />
+        <div className="rounded-xl border border-red-200 dark:border-danger-500/40 bg-danger-50 dark:bg-danger-500/10 p-4 flex items-center gap-3">
+          <ShieldAlert className="h-5 w-5 text-danger-600 dark:text-danger-400" />
           <div>
-            <div className="text-sm font-semibold text-danger-700">Kill switch engaged</div>
-            <div className="text-xs text-danger-700">
+            <div className="text-sm font-semibold text-danger-700 dark:text-danger-300">Kill switch engaged</div>
+            <div className="text-xs text-danger-700 dark:text-danger-300">
               Disabled subsystems: <span className="font-mono">{killed.join(', ')}</span>. Unset{' '}
               <code className="font-mono">CLAIMRAIL_DISABLE</code> to restore.
             </div>
@@ -87,13 +87,13 @@ export default async function SecurityPage() {
         </CardHeader>
         <CardContent className="p-0">
           {rows.length === 0 ? (
-            <div className="p-10 text-center text-sm text-ink-500">
+            <div className="p-10 text-center text-sm text-ink-500 dark:text-ink-400">
               No events yet. That's good.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-ink-50 text-xs uppercase tracking-wider text-ink-500">
+                <thead className="bg-ink-50 dark:bg-ink-950/40 text-xs uppercase tracking-wider text-ink-500 dark:text-ink-400">
                   <tr>
                     <th className="text-left px-6 py-3">When</th>
                     <th className="text-left px-6 py-3">Severity</th>
@@ -102,18 +102,18 @@ export default async function SecurityPage() {
                     <th className="text-left px-6 py-3">User agent</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ink-100">
+                <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                   {rows.map((r) => (
-                    <tr key={r.id} className="hover:bg-ink-50/60">
-                      <td className="px-6 py-3 text-ink-700">
+                    <tr key={r.id} className="hover:bg-ink-50/60 dark:hover:bg-ink-800/40">
+                      <td className="px-6 py-3 text-ink-700 dark:text-ink-300">
                         {format(new Date(r.createdAt * 1000), 'MMM d, HH:mm:ss')}
                       </td>
                       <td className="px-6 py-3">
                         <Badge tone={toneForSeverity(r.severity)}>{r.severity}</Badge>
                       </td>
-                      <td className="px-6 py-3 font-mono text-xs text-ink-900">{r.kind}</td>
-                      <td className="px-6 py-3 font-mono text-xs text-ink-500">{r.ip ?? '—'}</td>
-                      <td className="px-6 py-3 font-mono text-[11px] text-ink-500 max-w-md truncate">
+                      <td className="px-6 py-3 font-mono text-xs text-ink-900 dark:text-ink-100">{r.kind}</td>
+                      <td className="px-6 py-3 font-mono text-xs text-ink-500 dark:text-ink-400">{r.ip ?? '—'}</td>
+                      <td className="px-6 py-3 font-mono text-[11px] text-ink-500 dark:text-ink-400 max-w-md truncate">
                         {r.userAgent ?? '—'}
                       </td>
                     </tr>
@@ -139,14 +139,14 @@ function CountCard({
 }) {
   const ring =
     tone === 'danger'
-      ? 'border-red-200 bg-danger-50/40'
+      ? 'border-red-200 dark:border-danger-500/30 bg-danger-50/40 dark:bg-danger-500/10'
       : tone === 'warn'
-        ? 'border-amber-200 bg-warn-50/40'
-        : 'border-brand-200 bg-brand-50/40';
+        ? 'border-amber-200 dark:border-warn-500/30 bg-warn-50/40 dark:bg-warn-500/10'
+        : 'border-brand-200 dark:border-brand-500/30 bg-brand-50/40 dark:bg-brand-500/10';
   return (
     <div className={`rounded-xl border p-5 ${ring}`}>
-      <div className="text-xs uppercase tracking-wider text-ink-500">{label}</div>
-      <div className="mt-1 text-3xl font-semibold text-ink-900 tabular-nums">{value}</div>
+      <div className="text-xs uppercase tracking-wider text-ink-500 dark:text-ink-400">{label}</div>
+      <div className="mt-1 text-3xl font-semibold text-ink-900 dark:text-ink-100 tabular-nums">{value}</div>
     </div>
   );
 }

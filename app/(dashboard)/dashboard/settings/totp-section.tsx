@@ -124,19 +124,19 @@ export function TotpSection({ enabled }: { enabled: boolean }) {
       ) : null}
 
       {secret && otpauthUri && !confirmState?.success ? (
-        <div className="rounded-lg border border-ink-200 bg-ink-50/40 p-4 space-y-3">
-          <div className="text-sm font-medium text-ink-900">
+        <div className="rounded-lg border border-ink-200 dark:border-ink-700 bg-ink-50/40 dark:bg-ink-950/40 p-4 space-y-3">
+          <div className="text-sm font-medium text-ink-900 dark:text-ink-100">
             Scan with your authenticator
           </div>
-          <div className="text-xs text-ink-600">
+          <div className="text-xs text-ink-600 dark:text-ink-400">
             Use Google Authenticator, 1Password, Authy, or any RFC 6238 client.
           </div>
-          <div className="rounded border border-ink-200 bg-white p-3 font-mono text-xs break-all">
+          <div className="rounded border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900 text-ink-800 dark:text-ink-200 p-3 font-mono text-xs break-all">
             {otpauthUri}
           </div>
-          <div className="text-xs text-ink-600">
+          <div className="text-xs text-ink-600 dark:text-ink-400">
             Or enter this secret manually:{' '}
-            <span className="font-mono text-ink-900">{secret}</span>
+            <span className="font-mono text-ink-900 dark:text-ink-100">{secret}</span>
           </div>
           <form action={confirmAction} className="flex items-end gap-2">
             <input type="hidden" name="secret" value={secret} />

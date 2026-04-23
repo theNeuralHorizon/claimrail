@@ -42,8 +42,8 @@ export default async function SettingsPage() {
   return (
     <div className="p-8 max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Settings</h1>
-        <p className="text-sm text-ink-500 mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">Settings</h1>
+        <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
           Organization, account, and security preferences.
         </p>
       </div>
@@ -145,8 +145,8 @@ export default async function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-sm font-medium text-ink-900">Sign out of all devices</div>
-              <div className="text-xs text-ink-500">
+              <div className="text-sm font-medium text-ink-900 dark:text-ink-100">Sign out of all devices</div>
+              <div className="text-xs text-ink-500 dark:text-ink-400">
                 Revoke every active session for your account, including this browser.
               </div>
             </div>
@@ -154,12 +154,12 @@ export default async function SettingsPage() {
               <Button type="submit" variant="outline" size="sm">Log out everywhere</Button>
             </form>
           </div>
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100 dark:border-ink-800">
             <div>
-              <div className="text-sm font-medium text-ink-900">Audit log integrity</div>
-              <div className="text-xs text-ink-500">
+              <div className="text-sm font-medium text-ink-900 dark:text-ink-100">Audit log integrity</div>
+              <div className="text-xs text-ink-500 dark:text-ink-400">
                 {chainStatus.checked} events verified via hash chain.{' '}
-                <Link href="/dashboard/settings/audit" className="text-brand-700 hover:underline">
+                <Link href="/dashboard/settings/audit" className="text-brand-700 dark:text-brand-400 hover:underline">
                   View log →
                 </Link>
               </div>
@@ -168,12 +168,12 @@ export default async function SettingsPage() {
               {chainStatus.ok ? 'Intact' : `Broken at #${chainStatus.brokenAtIndex}`}
             </Badge>
           </div>
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-ink-100 dark:border-ink-800">
             <div>
-              <div className="text-sm font-medium text-ink-900">Security events</div>
-              <div className="text-xs text-ink-500">
+              <div className="text-sm font-medium text-ink-900 dark:text-ink-100">Security events</div>
+              <div className="text-xs text-ink-500 dark:text-ink-400">
                 Adversarial activity and defense triggers.{' '}
-                <Link href="/dashboard/settings/security" className="text-brand-700 hover:underline">
+                <Link href="/dashboard/settings/security" className="text-brand-700 dark:text-brand-400 hover:underline">
                   View events →
                 </Link>
               </div>
@@ -237,17 +237,17 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Probing</CardTitle>
           <CardDescription>
-            Hit this endpoint on a schedule (every 5 min recommended) to run probes.
-            Use GitHub Actions, Vercel Cron, or any scheduler you trust.
+            Hit this endpoint every 5 minutes from any scheduler (Vercel Cron,
+            EventBridge, or an internal cron) to keep uptime monitoring fresh.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <Label>Cron URL</Label>
-          <div className="font-mono text-xs bg-ink-50 p-3 rounded-lg border border-ink-200 break-all">
+          <div className="font-mono text-xs bg-ink-50 dark:bg-ink-950/60 text-ink-800 dark:text-ink-200 p-3 rounded-lg border border-ink-200 dark:border-ink-700 break-all">
             {cronUrl}
           </div>
-          <div className="text-xs text-ink-500">
-            Pass <code className="font-mono bg-ink-100 px-1 py-0.5 rounded">Authorization: Bearer $CRON_SECRET</code> header.
+          <div className="text-xs text-ink-500 dark:text-ink-400">
+            Pass <code className="font-mono bg-ink-100 dark:bg-ink-800 dark:text-ink-200 px-1 py-0.5 rounded">Authorization: Bearer $CRON_SECRET</code> header.
           </div>
         </CardContent>
       </Card>

@@ -43,7 +43,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             ))}
           </div>
         </div>
-        <div className="relative z-10 text-xs text-ink-400">© ClaimRail · Built with open source.</div>
+        <div className="relative z-10 text-xs text-ink-400">© {new Date().getFullYear()} ClaimRail</div>
       </div>
       <div className="flex items-center justify-center p-6 sm:p-10 bg-ink-50">
         <div className="w-full max-w-md">{children}</div>

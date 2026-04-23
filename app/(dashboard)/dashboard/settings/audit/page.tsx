@@ -35,16 +35,16 @@ export default async function AuditPage() {
       <div>
         <Link
           href="/dashboard/settings"
-          className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900 mb-3"
+          className="inline-flex items-center gap-1 text-sm text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100 mb-3"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Settings
         </Link>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
+            <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               Audit log
             </h1>
-            <p className="text-sm text-ink-500 mt-1">
+            <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
               {rows.length} most recent events · chain verified via SHA-256 Merkle-style links.
             </p>
           </div>
@@ -65,11 +65,11 @@ export default async function AuditPage() {
         </CardHeader>
         <CardContent className="p-0">
           {rows.length === 0 ? (
-            <div className="p-10 text-center text-sm text-ink-500">No events yet.</div>
+            <div className="p-10 text-center text-sm text-ink-500 dark:text-ink-400">No events yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-ink-50 text-xs uppercase tracking-wider text-ink-500">
+                <thead className="bg-ink-50 dark:bg-ink-950/40 text-xs uppercase tracking-wider text-ink-500 dark:text-ink-400">
                   <tr>
                     <th className="text-left px-6 py-3">#</th>
                     <th className="text-left px-6 py-3">When</th>
@@ -79,31 +79,31 @@ export default async function AuditPage() {
                     <th className="text-left px-6 py-3">Hash</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-ink-100">
+                <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
                   {rows.map((r) => (
-                    <tr key={r.id} className="hover:bg-ink-50/60">
-                      <td className="px-6 py-3 font-mono text-xs text-ink-500">
+                    <tr key={r.id} className="hover:bg-ink-50/60 dark:hover:bg-ink-800/40">
+                      <td className="px-6 py-3 font-mono text-xs text-ink-500 dark:text-ink-400">
                         {r.seq}
                       </td>
-                      <td className="px-6 py-3 text-ink-700">
+                      <td className="px-6 py-3 text-ink-700 dark:text-ink-300">
                         {format(new Date(r.createdAt * 1000), 'MMM d, HH:mm:ss')}
                       </td>
                       <td className="px-6 py-3">
                         <Badge tone={toneForAction(r.action)}>{r.action}</Badge>
                       </td>
-                      <td className="px-6 py-3 text-ink-700">
+                      <td className="px-6 py-3 text-ink-700 dark:text-ink-300">
                         {r.resource}
                         {r.resourceId ? (
-                          <span className="text-ink-400 font-mono text-xs">
+                          <span className="text-ink-400 dark:text-ink-500 font-mono text-xs">
                             {' '}
                             · {r.resourceId.slice(0, 8)}…
                           </span>
                         ) : null}
                       </td>
-                      <td className="px-6 py-3 font-mono text-xs text-ink-500">
+                      <td className="px-6 py-3 font-mono text-xs text-ink-500 dark:text-ink-400">
                         {r.actorId ? r.actorId.slice(0, 8) + '…' : '—'}
                       </td>
-                      <td className="px-6 py-3 font-mono text-[10px] text-ink-400">
+                      <td className="px-6 py-3 font-mono text-[10px] text-ink-400 dark:text-ink-500">
                         {r.rowHash?.slice(0, 10) ?? '—'}…
                       </td>
                     </tr>

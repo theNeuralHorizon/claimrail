@@ -19,6 +19,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { usePathname } from 'next/navigation';
 
 type Theme = 'light' | 'dark' | 'system';
 type Resolved = 'light' | 'dark';
@@ -50,8 +51,23 @@ function readInitial(): Theme {
   return 'system';
 }
 
+// Marketing + auth routes are intentionally light-only. Kept in sync with
+// `public/theme-boot.js`.
+const MARKETING_PATH_RE =
+  /^\/(?:$|login|signup|forgot-password|reset-password|verify-email|accept-invite|status|api-docs)/;
+
+function isMarketingPath(pathname: string): boolean {
+  return MARKETING_PATH_RE.test(pathname);
+}
+
 function applyThemeClass(resolved: Resolved): void {
   const el = document.documentElement;
+  // Force light on marketing pages regardless of user preference.
+  if (isMarketingPath(window.location.pathname)) {
+    el.classList.remove('dark');
+    el.style.colorScheme = 'light';
+    return;
+  }
   el.classList.toggle('dark', resolved === 'dark');
   el.style.colorScheme = resolved;
 }
@@ -59,6 +75,7 @@ function applyThemeClass(resolved: Resolved): void {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('system');
   const [resolved, setResolved] = useState<Resolved>('light');
+  const pathname = usePathname();
 
   useEffect(() => {
     const initial = readInitial();
@@ -67,6 +84,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolved(res);
     applyThemeClass(res);
   }, []);
+
+  // Re-apply on client-side navigation: going /dashboard (user-dark) →
+  // / (marketing-light) needs the .dark class removed on the transition,
+  // and the reverse needs it restored. theme-boot.js only runs on full
+  // page loads, so the SPA path needs this hook.
+  useEffect(() => {
+    applyThemeClass(resolved);
+  }, [pathname, resolved]);
 
   useEffect(() => {
     if (theme !== 'system') return;

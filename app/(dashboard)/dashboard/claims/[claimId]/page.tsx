@@ -45,17 +45,17 @@ export default async function ClaimDetailPage({ params }: Params) {
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <Link
         href="/dashboard/claims"
-        className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900"
+        className="inline-flex items-center gap-1 text-sm text-ink-500 dark:text-ink-400 hover:text-ink-900 dark:hover:text-ink-100"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Claims
       </Link>
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
             {vendor.name} · {claim.period}
           </h1>
-          <p className="text-sm text-ink-500 mt-1">
+          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
             Drafted {format(new Date(claim.createdAt * 1000), 'PPpp')}
           </p>
         </div>
@@ -97,14 +97,14 @@ export default async function ClaimDetailPage({ params }: Params) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-ink-500 mb-1">Subject</div>
-            <div className="font-mono text-sm bg-ink-50 p-3 rounded-lg border border-ink-200">
+            <div className="text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1">Subject</div>
+            <div className="font-mono text-sm bg-ink-50 dark:bg-ink-950/60 text-ink-800 dark:text-ink-200 p-3 rounded-lg border border-ink-200 dark:border-ink-700">
               {claim.emailSubject}
             </div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-ink-500 mb-1">Body</div>
-            <pre className="whitespace-pre-wrap font-mono text-xs bg-ink-50 p-4 rounded-lg border border-ink-200 max-h-[500px] overflow-y-auto">
+            <div className="text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1">Body</div>
+            <pre className="whitespace-pre-wrap font-mono text-xs bg-ink-50 dark:bg-ink-950/60 text-ink-800 dark:text-ink-200 p-4 rounded-lg border border-ink-200 dark:border-ink-700 max-h-[500px] overflow-y-auto">
               {claim.emailBody}
             </pre>
           </div>
@@ -140,13 +140,15 @@ function InfoBox({
   return (
     <div
       className={`rounded-xl border p-4 ${
-        accent ? 'border-brand-200 bg-brand-50/40' : 'border-ink-200 bg-white'
+        accent
+          ? 'border-brand-200 dark:border-brand-500/30 bg-brand-50/40 dark:bg-brand-500/10'
+          : 'border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900'
       }`}
     >
-      <div className="text-[10px] uppercase tracking-wider text-ink-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400">{label}</div>
       <div
         className={`mt-1 text-xl font-semibold tabular-nums font-mono ${
-          accent ? 'text-brand-700' : 'text-ink-900'
+          accent ? 'text-brand-700 dark:text-brand-300' : 'text-ink-900 dark:text-ink-100'
         }`}
       >
         {value}

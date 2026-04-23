@@ -44,14 +44,7 @@ function Nav() {
           <a href="#how" className="hover:text-ink-900 transition-colors">How it works</a>
           <a href="#features" className="hover:text-ink-900 transition-colors">Features</a>
           <a href="#pricing" className="hover:text-ink-900 transition-colors">Pricing</a>
-          <a
-            href="https://github.com/theNeuralHorizon/claimrail"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-ink-900 transition-colors"
-          >
-            GitHub
-          </a>
+          <a href="/api-docs" className="hover:text-ink-900 transition-colors">Docs</a>
         </nav>
         <div className="flex items-center gap-2">
           <Link href="/login">
@@ -625,22 +618,20 @@ function FinalCta() {
 }
 
 function Footer() {
+  const year = new Date().getFullYear();
   return (
     <footer className="border-t border-ink-200 bg-white">
       <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-ink-500">
         <div className="flex items-center gap-2">
           <LogoMark />
-          <span>ClaimRail · built with open source</span>
+          <span>© {year} ClaimRail. All rights reserved.</span>
         </div>
-        <div className="flex items-center gap-5">
-          <a href="#" className="hover:text-ink-900">Privacy</a>
-          <a href="#" className="hover:text-ink-900">Security</a>
-          <a
-            href="https://github.com/theNeuralHorizon/claimrail"
-            className="hover:text-ink-900"
-          >
-            GitHub
-          </a>
+        <div className="flex items-center gap-6">
+          <a href="/api-docs" className="hover:text-ink-900 transition-colors">Docs</a>
+          <a href="/status" className="hover:text-ink-900 transition-colors">Status</a>
+          <a href="#" className="hover:text-ink-900 transition-colors">Privacy</a>
+          <a href="#" className="hover:text-ink-900 transition-colors">Security</a>
+          <a href="#" className="hover:text-ink-900 transition-colors">Contact</a>
         </div>
       </div>
     </footer>
