@@ -7,8 +7,14 @@ import { eq, and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createHash } from 'node:crypto';
 
-const COOKIE_NAME = '__Host-claimrail_session';
-const LEGACY_COOKIE_NAME = 'claimrail_session'; // read-only fallback
+// The `__Host-` prefix is a browser-enforced hardening: cookie MUST have
+// Secure + Path=/ and MUST NOT have a Domain attribute. Any violation →
+// browsers silently drop the Set-Cookie. That means we can only use it
+// when we're actually serving HTTPS (i.e. production). In dev we fall
+// back to the plain name so logins work over http://localhost.
+const IS_PROD = process.env.NODE_ENV === 'production';
+const COOKIE_NAME = IS_PROD ? '__Host-claimrail_session' : 'claimrail_session';
+const LEGACY_COOKIE_NAME = 'claimrail_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days sliding
 const ABSOLUTE_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days absolute
 const JWT_ISSUER = 'claimrail';

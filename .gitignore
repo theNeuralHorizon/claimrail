@@ -26,3 +26,7 @@ data/
 
 *.tsbuildinfo
 next-env.d.ts
+
+# Local design-review screenshots produced by scripts/screenshot.mjs.
+shots/
+
