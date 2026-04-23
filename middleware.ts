@@ -31,10 +31,15 @@ function shouldForceHttps(req: NextRequest): boolean {
 }
 
 function buildCsp(nonce: string, isDev: boolean): string {
+  // CSP3 nonce + 'self' (no 'strict-dynamic'). 'strict-dynamic' would
+  // elegantly cascade trust through the DOM, but it overrides 'self' and
+  // blocks our own static assets (e.g. /theme-boot.js) — the trade-off
+  // isn't worth the extra attack surface we'd re-open by allowing
+  // 'unsafe-inline' as a fallback. 'self' + nonce still blocks every
+  // cross-origin and every unsigned inline script.
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
-    "'strict-dynamic'",
     // Dev only: Next.js inlines eval for Fast Refresh.
     isDev ? "'unsafe-eval'" : '',
   ]

@@ -13,6 +13,7 @@ import { ChangePasswordForm } from './change-password-form';
 import { TotpSection } from './totp-section';
 import { SlackSection } from './slack-section';
 import { ApiTokensSection } from './api-tokens-section';
+import { format } from 'date-fns';
 
 export const metadata = { title: 'Settings · ClaimRail' };
 
@@ -221,6 +222,12 @@ export default async function SettingsPage() {
             scope: t.scope,
             createdAt: t.createdAt,
             lastUsedAt: t.lastUsedAt ?? null,
+            // Format server-side with a locale-independent pattern — the
+            // client would render `toLocaleString()` with its own locale,
+            // blowing up React's hydration check.
+            lastUsedLabel: t.lastUsedAt
+              ? format(new Date(t.lastUsedAt * 1000), 'MMM d, yyyy · HH:mm')
+              : 'never',
             revokedAt: t.revokedAt ?? null,
           }))} />
         </CardContent>
