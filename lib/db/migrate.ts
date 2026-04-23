@@ -65,6 +65,31 @@ CREATE TABLE IF NOT EXISTS totp_replay_nonces (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS totp_replay_user_step_idx ON totp_replay_nonces(user_id, step);
 
+CREATE TABLE IF NOT EXISTS integrations (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  config_encrypted TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS integrations_org_idx ON integrations(org_id, kind);
+
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  prefix TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  scope TEXT NOT NULL DEFAULT 'read',
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  last_used_at INTEGER,
+  revoked_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS api_tokens_org_idx ON api_tokens(org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS api_tokens_hash_idx ON api_tokens(token_hash);
+
 CREATE TABLE IF NOT EXISTS security_events (
   id TEXT PRIMARY KEY,
   org_id TEXT REFERENCES orgs(id) ON DELETE CASCADE,

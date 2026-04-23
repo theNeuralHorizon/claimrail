@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
+import { ThemeProvider, THEME_BOOT_SCRIPT } from '@/components/theme/theme-provider';
 
 export const metadata: Metadata = {
   title: 'ClaimRail — Recover unclaimed SaaS SLA credits, automatically',
@@ -24,21 +25,28 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: '#0f172a',
-              color: '#ffffff',
-              borderRadius: '10px',
-              fontSize: '0.875rem',
-              padding: '12px 16px',
-            },
-          }}
-        />
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply stored/system theme BEFORE React hydrates so we don't
+            flash the wrong palette. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="bg-ink-50 text-ink-900 dark:bg-ink-950 dark:text-ink-100">
+        <ThemeProvider>
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: '#0f172a',
+                color: '#ffffff',
+                borderRadius: '10px',
+                fontSize: '0.875rem',
+                padding: '12px 16px',
+              },
+            }}
+          />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

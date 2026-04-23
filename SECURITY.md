@@ -121,6 +121,21 @@ runbooks live in [`RED_TEAM.md`](RED_TEAM.md).
 - **Audit chain:** SHA-256 of a canonical field-concat including a strictly-monotonic per-org sequence number.
 - **Fingerprint:** SHA-256 of `UA + | + IP`, truncated to 24 hex chars.
 
+## Integrations + API surface (product-v3)
+
+| Threat | Defense | File |
+|---|---|---|
+| Slack webhook URL leaked by DB dump | URL encrypted AES-256-GCM under a KDF-derived key from `AUTH_SECRET`. Shape validated (`https://hooks.slack.com/services/...`) at save time. | `lib/integrations/slack.ts` |
+| Slack delivery slows / breaks user-facing actions | `sendSlackAlert` is fire-and-forget (`void` the promise) and swallows thrown errors — logs to stdout only. | `lib/integrations/slack.ts`, `app/api/vendors/[vendorId]/claim/route.ts` |
+| API token forgery | 256-bit random tokens with a `crt_` prefix, stored only as HMAC-SHA-256 digests peppered with `AUTH_SECRET`. Prefix is kept in clear for UI identification. | `lib/auth/api-tokens.ts` |
+| Stolen API token replay forever | Tokens revokable by the org owner; lookup rejects `revoked_at != null`. | `lib/auth/api-tokens.ts:resolveApiToken` |
+| Token enumeration / guessing | Rate limit 60 req/min per token ID on `/api/v1/*` + global IP limits upstream. | `app/api/v1/vendors/route.ts` |
+| Scope escalation via API token | Tokens carry `read`/`write` scope, write-only endpoints reject read tokens. Currently all v1 endpoints are read-only. | `app/api/v1/vendors/route.ts` |
+| Cross-tenant access via stolen token | Every v1 query filters by `resolved.orgId` — same tenancy boundary as the web app. | `app/api/v1/vendors/route.ts` |
+| Path traversal via claim PDF filename | `claimPdfFilename` strips every char not in `[a-zA-Z0-9._-]` — tested against `../../etc/passwd`. | `lib/claims/pdf.ts`, `tests/pdf.test.ts` |
+| Unauthenticated PDF download (data leak) | Claim PDF endpoint calls `getAuthContext()` + joins on `vendors.orgId` so cross-tenant access returns 404. | `app/api/claims/[claimId]/pdf/route.ts` |
+| Health endpoint as a DB fingerprint | `/api/health` returns counts only — no schema details, no error strings in prod (same error-scrub policy). | `app/api/health/route.ts` |
+
 ## CI / supply-chain
 
 - **Dependency audit:** `npm audit --omit=dev --audit-level=high` on every CI run.

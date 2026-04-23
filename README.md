@@ -53,15 +53,37 @@ The result: companies leave **$60K–$400K a year on the table** in recoverable 
 
 ## Features
 
+### Core recovery engine
+
 - ✅ **AI SLA parser** · Claude API with a zero-dependency regex fallback
 - ✅ **Independent HTTP probing** · classify up / degraded / down based on status + latency
 - ✅ **Straddle-safe uptime math** · incidents that cross month boundaries are correctly split
 - ✅ **Tier-aware credit calculator** · always picks the *most generous* tier breached
 - ✅ **Auto-drafted claim letters** · professional templates with evidence attachment
+- ✅ **Claim PDF export** · zero-dep PDF 1.4 writer, download straight from the UI
 - ✅ **Recovery tracking** · `drafted → filed → acknowledged → recovered / rejected`
+
+### Integrations + API
+
+- ✅ **Slack webhooks** · encrypted at rest, fires on claim draft and anomaly detection
+- ✅ **REST API v1** · `GET /api/v1/vendors` with bearer-token auth and per-token rate limits
+- ✅ **Scheduler-friendly** · one cron endpoint, shared-secret auth
+
+### Security + ops
+
 - ✅ **Multi-tenant** · orgs, memberships, RBAC roles, strict row-level isolation
-- ✅ **Audit log** · every mutation recorded, per-org
-- ✅ **Scheduler-friendly** · one endpoint, shared-secret auth, wire it into GitHub Actions / Vercel Cron / any scheduler
+- ✅ **Hash-chained audit log** · every mutation anchored to the previous row's SHA-256
+- ✅ **Security events + admin viewer** · 22 adversarial event kinds, live severity counters
+- ✅ **Kill switch** · `CLAIMRAIL_DISABLE=login,signup,…` pauses subsystems without a redeploy
+- ✅ **Docker Compose deploy** · `docker compose up` starts app + probe sidecar
+
+### UX
+
+- ✅ **Dark mode** with system-preference detection
+- ✅ **Command palette** (`⌘K`) with fuzzy search over vendors, claims, and pages
+- ✅ **Live notifications bell** pulling from the security-event stream
+- ✅ **7-day uptime sparklines** on every vendor card
+- ✅ **Public `/status` page** · same checks as `/api/health`, auto-refreshes
 
 ## Tech stack
 
@@ -80,24 +102,25 @@ The result: companies leave **$60K–$400K a year on the table** in recoverable 
 
 ## Quick start
 
-Requires Node 20+.
+### Option 1 — Docker (one command)
 
 ```bash
-# 1. Install
-npm install --legacy-peer-deps
-
-# 2. Configure (edit .env.local, AUTH_SECRET is required)
-cp .env.example .env.local
-
-# 3. Create DB + seed demo data (6 vendors, 45 days of probe history, live claims)
-npm run prepare-data
-
-# 4. Run
-npm run dev
-
-# → http://localhost:3000
-# Demo login: demo@claimrail.io / DemoRail!2026
+export AUTH_SECRET=$(openssl rand -hex 32)
+export CRON_SECRET=$(openssl rand -hex 32)
+docker compose up --build
+# → http://localhost:3000 · http://localhost:3000/status
 ```
+
+### Option 2 — local Node 20+
+
+```bash
+npm install --legacy-peer-deps
+cp .env.example .env.local   # edit AUTH_SECRET
+npm run prepare-data         # migrate + seed 6 vendors, 45 days of probe history
+npm run dev                  # → http://localhost:3000
+```
+
+Demo login: `demo@claimrail.io` / `DemoRail!2026`.
 
 ## Scripts
 
@@ -156,6 +179,50 @@ tests/                   Vitest suite — SLA engine, parser, generator, probe, 
 - **JWT + DB session row** — JWT alone can't be revoked; a DB row lets us kill sessions.
 - **Many small files, one purpose each** — the SLA engine, probe engine, parser, and generator are independent pure modules. Tested in isolation.
 - **Pick the highest applicable credit tier** — real SLAs award the *most generous* tier hit, not the sum. This is a common mistake in toy implementations.
+
+## API & integrations
+
+### REST v1
+
+Create a token in **Settings → API tokens** (the raw `crt_…` string is
+shown once; we only ever store an HMAC digest). Then:
+
+```bash
+curl -H "Authorization: Bearer crt_<your_token>" \
+     https://your-claimrail.example.com/api/v1/vendors
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "…",
+      "name": "Relayloop (email API)",
+      "monitorUrl": "https://status.relayloop.dev/",
+      "monthlySpendCents": 2800000,
+      "currentPeriod": "2026-04",
+      "uptimePct": 99.5821,
+      "breach": {
+        "hasBreach": true,
+        "threshold": 99.9,
+        "creditPct": 10,
+        "estimatedCreditCents": 280000
+      }
+    }
+  ],
+  "meta": { "count": 1, "period": "2026-04" }
+}
+```
+
+Per-token rate limit: 60 req/min.
+
+### Slack alerts
+
+Paste an Incoming Webhook URL in **Settings → Slack alerts**. We encrypt
+it at rest (AES-256-GCM under a `AUTH_SECRET`-derived key) and fire a
+test message immediately so you know it landed. After that, you get a
+message every time a claim is drafted, an impossible-travel login is
+detected, or a new-device login happens.
 
 ## Setting up automated probing
 

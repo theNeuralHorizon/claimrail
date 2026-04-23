@@ -7,7 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Copy, Mail } from 'lucide-react';
+import { ArrowLeft, Copy, Mail, FileDown } from 'lucide-react';
 import { formatCents, formatUptime } from '@/lib/sla/engine';
 import { format } from 'date-fns';
 import { ClaimActions, CopyButton } from './claim-actions';
@@ -83,6 +83,11 @@ export default async function ClaimDetailPage({ params }: Params) {
           </div>
           <div className="flex items-center gap-2">
             <CopyButton text={`${claim.emailSubject}\n\n${claim.emailBody}`} />
+            <a href={`/api/claims/${claim.id}/pdf`}>
+              <Button variant="outline" size="sm">
+                <FileDown className="h-3.5 w-3.5" /> Download PDF
+              </Button>
+            </a>
             <a href={mailto}>
               <Button variant="primary" size="sm">
                 <Mail className="h-3.5 w-3.5" /> Open in email
