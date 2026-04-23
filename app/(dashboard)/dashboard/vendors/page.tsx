@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireAuth } from '@/lib/auth/session';
-import { getVendorOverviews } from '@/lib/queries';
+import { getVendorOverviews, getDailyUptime } from '@/lib/queries';
+import { UptimeSparkline } from '@/components/features/uptime-sparkline';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge, StatusDot } from '@/components/ui/badge';
@@ -12,6 +13,13 @@ export const metadata = { title: 'Vendors · ClaimRail' };
 export default async function VendorsPage() {
   const ctx = await requireAuth();
   const overviews = await getVendorOverviews(ctx.org.id);
+  const sparklines = await Promise.all(
+    overviews.map(async (o) => ({
+      vendorId: o.vendor.id,
+      points: await getDailyUptime(o.vendor.id, 7),
+    })),
+  );
+  const sparkMap = new Map(sparklines.map((s) => [s.vendorId, s.points]));
 
   return (
     <div className="p-8 space-y-6">
@@ -71,17 +79,33 @@ export default async function VendorsPage() {
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider text-ink-500">Uptime</div>
-                        <div className="font-mono text-ink-900 tabular-nums">
+                        <div className="text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400">Uptime</div>
+                        <div className="font-mono text-ink-900 dark:text-ink-100 tabular-nums">
                           {formatUptime(o.uptimePct)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider text-ink-500">Monthly spend</div>
-                        <div className="font-mono text-ink-900 tabular-nums">
+                        <div className="text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400">Monthly spend</div>
+                        <div className="font-mono text-ink-900 dark:text-ink-100 tabular-nums">
                           {formatCents(o.vendor.monthlySpendCents)}
                         </div>
                       </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-ink-500 dark:text-ink-400 mb-1">
+                        <span>Last 7 days</span>
+                        <span>
+                          {sparkMap.get(o.vendor.id)?.[0]?.uptimePct?.toFixed(2) ?? '—'}% today
+                        </span>
+                      </div>
+                      <UptimeSparkline
+                        points={sparkMap.get(o.vendor.id) ?? []}
+                        threshold={
+                          o.tiers.length
+                            ? Math.max(...o.tiers.map((t) => t.uptimeThresholdPct))
+                            : 99.9
+                        }
+                      />
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-ink-100">
                       <Badge tone="neutral">

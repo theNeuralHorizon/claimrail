@@ -1,0 +1,50 @@
+services:
+  claimrail:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: claimrail:latest
+    container_name: claimrail
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Required. Generate with: openssl rand -hex 32
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set to at least 32 chars}
+      # Where the SQLite DB lives. Persisted via the `data` volume below.
+      DATABASE_URL: /app/data/claimrail.db
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      CRON_SECRET: ${CRON_SECRET:-}
+      # Optional — kill switch for incident response.
+      # CLAIMRAIL_DISABLE: signup
+    volumes:
+      - claimrail-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Runs the probe endpoint on a schedule using curl in a tiny alpine.
+  probes:
+    image: alpine:3.20
+    depends_on:
+      claimrail:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET must be set to enable the probe loop}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache curl >/dev/null
+        while true; do
+          curl -fsSL -X POST -H "Authorization: Bearer $$CRON_SECRET" \
+            http://claimrail:3000/api/cron/probes >/dev/null || true
+          sleep 300
+        done
+
+volumes:
+  claimrail-data:

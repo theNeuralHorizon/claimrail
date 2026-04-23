@@ -241,6 +241,45 @@ export async function getAllClaims(orgId: string) {
   return rows.map((r) => ({ claim: r.c, vendor: r.v }));
 }
 
+/**
+ * Per-vendor daily uptime for the last N days (default 7). Derived from
+ * the incident log, same math as the full uptime report but broken down
+ * per UTC day.
+ */
+export async function getDailyUptime(
+  vendorId: string,
+  days = 7,
+): Promise<Array<{ day: number; uptimePct: number }>> {
+  const endDay = Math.floor(Date.now() / 1000 / 86400) * 86400; // today 00:00 UTC
+  const startDay = endDay - (days - 1) * 86400;
+  const incs = await db
+    .select()
+    .from(incidents)
+    .where(and(eq(incidents.vendorId, vendorId), gte(incidents.startedAt, startDay - 7 * 86400)))
+    .all();
+  const now = Math.floor(Date.now() / 1000);
+  const out: Array<{ day: number; uptimePct: number }> = [];
+  for (let i = 0; i < days; i += 1) {
+    const dayStart = startDay + i * 86400;
+    const dayEnd = Math.min(dayStart + 86400, now);
+    const total = Math.max(0, dayEnd - dayStart);
+    if (total <= 0) {
+      out.push({ day: dayStart, uptimePct: 100 });
+      continue;
+    }
+    let downtime = 0;
+    for (const inc of incs) {
+      const incEnd = inc.endedAt ?? (inc.durationSeconds != null ? inc.startedAt + inc.durationSeconds : now);
+      const overlapStart = Math.max(inc.startedAt, dayStart);
+      const overlapEnd = Math.min(incEnd, dayEnd);
+      if (overlapEnd > overlapStart) downtime += overlapEnd - overlapStart;
+    }
+    if (downtime > total) downtime = total;
+    out.push({ day: dayStart, uptimePct: ((total - downtime) / total) * 100 });
+  }
+  return out;
+}
+
 export async function getVendorDetail(orgId: string, vendorId: string) {
   const vendor = await db
     .select()

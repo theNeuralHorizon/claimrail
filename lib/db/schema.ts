@@ -84,6 +84,39 @@ export const totpReplayNonces = sqliteTable('totp_replay_nonces', {
   userStepIdx: uniqueIndex('totp_replay_user_step_idx').on(t.userId, t.step),
 }));
 
+// Per-org integration settings. Webhook URL stored encrypted so a DB
+// leak alone doesn't give the attacker the customer's Slack endpoint.
+export const integrations = sqliteTable('integrations', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['slack_webhook'] }).notNull(),
+  // AES-GCM-encrypted JSON blob of whatever config the integration needs.
+  configEncrypted: text('config_encrypted').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+}, (t) => ({
+  orgIdx: index('integrations_org_idx').on(t.orgId, t.kind),
+}));
+
+// API tokens — programmatic REST access. Stored as peppered HMAC digests.
+// The first 12 chars of the raw token live in the clear as `prefix` so the
+// settings UI can show "crt_abc123…" without ever storing the token itself.
+export const apiTokens = sqliteTable('api_tokens', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => orgs.id, { onDelete: 'cascade' }),
+  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  prefix: text('prefix').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  scope: text('scope', { enum: ['read', 'write'] }).notNull().default('read'),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch())`),
+  lastUsedAt: integer('last_used_at'),
+  revokedAt: integer('revoked_at'),
+}, (t) => ({
+  orgIdx: index('api_tokens_org_idx').on(t.orgId),
+  hashIdx: uniqueIndex('api_tokens_hash_idx').on(t.tokenHash),
+}));
+
 // Security events (distinct from the audit log — audit records successful
 // state transitions; security events record attacks, anomalies, and
 // defense triggers).

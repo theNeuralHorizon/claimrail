@@ -13,6 +13,8 @@ import {
 import { generateClaim } from '@/lib/claims/generator';
 import { guardMutation } from '@/lib/security/request-guard';
 import { appendAuditEvent } from '@/lib/audit/chain';
+import { sendSlackAlert } from '@/lib/integrations/slack';
+import { formatCents, formatUptime } from '@/lib/sla/engine';
 
 const schema = z.object({
   period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
@@ -140,6 +142,20 @@ export async function POST(req: NextRequest, { params }: Params) {
       period,
       estimatedCreditCents: breach.estimatedCreditCents,
     },
+  });
+
+  // Fire-and-forget Slack alert — intentionally not awaited so slow
+  // webhook delivery can't delay the HTTP response.
+  void sendSlackAlert(ctx.org.id, {
+    kind: 'claim_drafted',
+    title: `Claim drafted · ${vendor.name}`,
+    details: {
+      Period: period,
+      Uptime: formatUptime(report.uptimePct),
+      Threshold: `${breach.threshold}%`,
+      Credit: formatCents(breach.estimatedCreditCents),
+    },
+    link: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/dashboard/claims/${id}`,
   });
 
   return NextResponse.json({ id, estimatedCreditCents: breach.estimatedCreditCents });

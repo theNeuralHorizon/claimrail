@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { logoutAllSessionsAction, resendVerificationForm } from '@/lib/auth/actions';
 import { verifyAuditChain } from '@/lib/audit/chain';
 import { db } from '@/lib/db/client';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, integrations, apiTokens } from '@/lib/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { ChangePasswordForm } from './change-password-form';
 import { TotpSection } from './totp-section';
+import { SlackSection } from './slack-section';
+import { ApiTokensSection } from './api-tokens-section';
 
 export const metadata = { title: 'Settings · ClaimRail' };
 
@@ -21,6 +23,20 @@ export default async function SettingsPage() {
   const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
   const emailVerified = user?.emailVerifiedAt != null;
   const totpEnabled = user?.totpEnabledAt != null;
+
+  const slackRow = await db
+    .select()
+    .from(integrations)
+    .where(and(eq(integrations.orgId, ctx.org.id), eq(integrations.kind, 'slack_webhook'), eq(integrations.enabled, true)))
+    .get();
+
+  const tokens = await db
+    .select()
+    .from(apiTokens)
+    .where(eq(apiTokens.orgId, ctx.org.id))
+    .orderBy(desc(apiTokens.createdAt))
+    .limit(20)
+    .all();
 
   return (
     <div className="p-8 max-w-3xl space-y-6">
@@ -163,6 +179,38 @@ export default async function SettingsPage() {
             </div>
             <Badge tone="info">Live</Badge>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Slack alerts</CardTitle>
+          <CardDescription>
+            {slackRow ? 'Connected. Sending alerts to your workspace.' : 'Get an alert in Slack on breaches, claim drafts, and anomalies.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SlackSection connected={!!slackRow} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>API tokens</CardTitle>
+          <CardDescription>
+            Programmatic access to <code className="font-mono text-xs">/api/v1/*</code>. Keep these secret.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ApiTokensSection tokens={tokens.map((t) => ({
+            id: t.id,
+            name: t.name,
+            prefix: t.prefix,
+            scope: t.scope,
+            createdAt: t.createdAt,
+            lastUsedAt: t.lastUsedAt ?? null,
+            revokedAt: t.revokedAt ?? null,
+          }))} />
         </CardContent>
       </Card>
 
