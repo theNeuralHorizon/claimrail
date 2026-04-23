@@ -288,7 +288,13 @@ export async function getDailyUptime(
 export async function getMonthlyRecovery(
   orgId: string,
   months = 6,
-): Promise<Array<{ period: string; filedCents: number; recoveredCents: number; count: number }>> {
+): Promise<Array<{
+  period: string;
+  draftedCents: number;
+  filedCents: number;
+  recoveredCents: number;
+  count: number;
+}>> {
   // Build the list of period labels we care about, oldest → newest.
   const now = new Date();
   const periods: string[] = [];
@@ -307,13 +313,21 @@ export async function getMonthlyRecovery(
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(eq(vendors.orgId, orgId))
     .all();
-  const byPeriod = new Map<string, { filed: number; recovered: number; count: number }>();
-  for (const p of periods) byPeriod.set(p, { filed: 0, recovered: 0, count: 0 });
+  const byPeriod = new Map<
+    string,
+    { drafted: number; filed: number; recovered: number; count: number }
+  >();
+  for (const p of periods) byPeriod.set(p, { drafted: 0, filed: 0, recovered: 0, count: 0 });
   for (const r of rows) {
     const bucket = byPeriod.get(r.period);
     if (!bucket) continue; // outside the requested window
     bucket.count += 1;
-    if (['filed', 'acknowledged', 'recovered', 'rejected'].includes(r.status)) {
+    // Three stages of the recovery funnel — we show all three stacked so
+    // an org with only drafted claims still sees momentum.
+    if (r.status === 'drafted') {
+      bucket.drafted += r.estimatedCreditCents;
+    }
+    if (['filed', 'acknowledged', 'rejected'].includes(r.status)) {
       bucket.filed += r.estimatedCreditCents;
     }
     if (r.status === 'recovered') {
@@ -324,6 +338,7 @@ export async function getMonthlyRecovery(
     const b = byPeriod.get(p)!;
     return {
       period: p,
+      draftedCents: b.drafted,
       filedCents: b.filed,
       recoveredCents: b.recovered,
       count: b.count,

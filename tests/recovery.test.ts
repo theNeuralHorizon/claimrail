@@ -125,10 +125,11 @@ describe('getMonthlyRecovery', () => {
     const byPeriod = Object.fromEntries(result.map((r) => [r.period, r]));
     expect(byPeriod[periodA].filedCents).toBe(10_000);
     expect(byPeriod[periodA].recoveredCents).toBe(0);
-    // periodB has one "recovered" claim — filed includes the recovered claim
-    // too, because "filed" counts everything that was actually sent.
+    expect(byPeriod[periodA].draftedCents).toBe(0);
+    // periodB: one recovered claim ($20k collected) + one still-drafted
+    // claim at $10k — each shows up in its own bucket now.
     expect(byPeriod[periodB].recoveredCents).toBe(20_000);
-    expect(byPeriod[periodB].filedCents).toBeGreaterThanOrEqual(25_000);
+    expect(byPeriod[periodB].draftedCents).toBe(10_000);
   });
 
   it('returns all zeros for an org with no claims', async () => {
@@ -137,6 +138,7 @@ describe('getMonthlyRecovery', () => {
     const result = await getMonthlyRecovery(orgId, 4);
     expect(result).toHaveLength(4);
     for (const r of result) {
+      expect(r.draftedCents).toBe(0);
       expect(r.filedCents).toBe(0);
       expect(r.recoveredCents).toBe(0);
       expect(r.count).toBe(0);
