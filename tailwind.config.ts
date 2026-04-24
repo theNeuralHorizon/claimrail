@@ -33,9 +33,11 @@ const config: Config = {
           500: '#64748b',
           600: '#475569',
           700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-          950: '#020617',
+          // 800-950 are the "dark canvas" shades. Kept neutral (not slate/blue)
+          // so the dashboard reads as true black, not navy.
+          800: '#1f1f1f',
+          900: '#0b0b0b',
+          950: '#000000',
         },
         danger: {
           50: '#fef2f2',
