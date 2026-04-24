@@ -1,0 +1,33 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# One-service blueprint: a cron job that hits ClaimRail's probe endpoint
+# every 5 minutes. The app itself runs on Vercel; Render handles only the
+# scheduler because Vercel Cron requires the Pro plan for sub-hourly
+# schedules.
+#
+# After connecting this repo to Render as a Blueprint:
+#   1. Set APP_URL env var → https://claimrail.vercel.app (or custom domain)
+#   2. Set CRON_SECRET env var → same value set in Vercel's environment
+#
+# Both secrets are set in the Render dashboard, not here, so this file is
+# safe to commit.
+
+services:
+  - type: cron
+    name: claimrail-probe-cron
+    runtime: image
+    image:
+      url: curlimages/curl:8.11.1
+    # Every 5 minutes, every day.
+    schedule: '*/5 * * * *'
+    # The cron image runs `dockerCommand` and exits. Exit code != 0 means
+    # the run failed — Render flags failed runs in the dashboard.
+    dockerCommand: >
+      sh -c 'curl --fail --show-error --silent --max-time 45
+      -H "Authorization: Bearer $CRON_SECRET"
+      -X POST "$APP_URL/api/cron/probes"'
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false

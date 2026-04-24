@@ -13,6 +13,9 @@ regexes = [
   "dev-fallback-secret-key-do-not-use-in-production-please",
   # CI-only AUTH_SECRET used by the CI workflow.
   "ci-test-secret-min-32-chars-long-enough-for-hs256-sign",
+  # Deploy-workflow placeholder used only to satisfy the import-time
+  # AUTH_SECRET check when running migrations. Nothing signs with it.
+  "ci-migrate-placeholder-min-32-chars-long-enough-signing-xxx",
   # Test-suite AUTH_SECRET baked into integration tests (never deployed).
   "test-secret-min-32-chars-long-enough-for-hs256-sign",
   "test-secret-long-enough-for-hs256-sign-ok",
@@ -30,4 +33,5 @@ paths = [
   '''^tests/.*\.test\.ts$''',
   '''^vitest\.config\.ts$''',
   '''^\.github/workflows/ci\.yml$''',
+  '''^\.github/workflows/deploy\.yml$''',
 ]

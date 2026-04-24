@@ -1,0 +1,99 @@
+name: Deploy
+
+# Runs right after a push to main. Applies pending migrations to the
+# production (Turso) database, then smoke-tests the deployed app. The
+# Vercel deployment itself is triggered by Vercel's Git integration — we
+# don't ship a `vercel deploy` command here so nothing in CI holds a
+# Vercel token.
+#
+# Secrets required (Settings → Secrets and variables → Actions):
+#   DATABASE_URL           libsql://<db-name>-<org>.turso.io
+#   DATABASE_AUTH_TOKEN    Token from Turso dashboard (scoped to the DB)
+#   DEPLOY_URL             https://claimrail.vercel.app (or custom domain)
+#
+# If any of these secrets are missing, the corresponding step logs a
+# warning and is skipped — so fresh forks and local CI stay green until
+# the repo owner wires the secrets up.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never run two deploy workflows at once against the same DB.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Lift secrets into env at the job scope so we can test them in `if:`
+    # conditions. (Referring to `secrets.*` directly in `if:` does not
+    # work reliably.)
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      - name: Run migrations against production DB
+        if: env.DATABASE_URL != '' && env.DATABASE_AUTH_TOKEN != ''
+        env:
+          # lib/db/client imports lib/auth/session transitively which
+          # requires AUTH_SECRET to be set at import time. The value
+          # doesn't matter for migrations — nothing signs tokens here.
+          AUTH_SECRET: ci-migrate-placeholder-min-32-chars-long-enough-signing-xxx
+        run: npm run db:migrate
+
+      - name: Note skipped migration
+        if: env.DATABASE_URL == '' || env.DATABASE_AUTH_TOKEN == ''
+        run: |
+          echo "::warning::Skipped prod migration — DATABASE_URL / DATABASE_AUTH_TOKEN secrets not set."
+          echo "Add them in repo Settings → Secrets and variables → Actions, then re-run this workflow."
+
+  smoke:
+    # Smoke-test the already-deployed site (Vercel deploys in parallel).
+    # Retries because Vercel's promote-to-production can take a minute
+    # after the git push.
+    runs-on: ubuntu-latest
+    needs: migrate
+    timeout-minutes: 5
+    env:
+      DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+    steps:
+      - name: Wait for deployment + smoke-test /api/health
+        if: env.DEPLOY_URL != ''
+        run: |
+          set -euo pipefail
+          # Up to 12 attempts × 15s = 3min of patience for Vercel to promote.
+          for attempt in $(seq 1 12); do
+            echo "attempt $attempt → $DEPLOY_URL/api/health"
+            body=$(curl --silent --show-error --max-time 10 "$DEPLOY_URL/api/health" || true)
+            if echo "$body" | grep -q '"service":"claimrail"'; then
+              echo "ok — health endpoint reachable"
+              echo "$body"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Deployed site did not serve a healthy /api/health after 3 minutes"
+          exit 1
+
+      - name: Note skipped smoke test
+        if: env.DEPLOY_URL == ''
+        run: |
+          echo "::warning::Skipped smoke test — DEPLOY_URL secret not set."
