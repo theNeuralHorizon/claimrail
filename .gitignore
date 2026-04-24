@@ -27,6 +27,9 @@ data/
 *.tsbuildinfo
 next-env.d.ts
 
+# Per-repo Claude session state.
+.claude/
+
 # Local design-review screenshots produced by scripts/screenshot.mjs.
 shots/
 
