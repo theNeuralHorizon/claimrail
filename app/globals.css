@@ -24,9 +24,11 @@
   }
   html.dark body {
     @apply bg-ink-950 text-ink-100;
+    /* Kept subtle on true-black. Only the brand emerald glow top-left;
+       the bottom-right shade was a bluish slate — now a neutral warm-black. */
     background-image:
-      radial-gradient(at 8% 0%, rgba(16, 185, 129, 0.1) 0, transparent 55%),
-      radial-gradient(at 92% 100%, rgba(15, 23, 42, 0.4) 0, transparent 50%);
+      radial-gradient(at 8% 0%, rgba(16, 185, 129, 0.08) 0, transparent 55%),
+      radial-gradient(at 92% 100%, rgba(31, 31, 31, 0.6) 0, transparent 50%);
   }
   * {
     @apply border-ink-200;
