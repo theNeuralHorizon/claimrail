@@ -17,7 +17,7 @@ export async function GET() {
     .from(vendors)
     .where(eq(vendors.orgId, ctx.org.id))
     .limit(20)
-    .all();
+    ;
 
   const c = await db
     .select({ id: claims.id, period: claims.period, vendorName: vendors.name })
@@ -26,7 +26,7 @@ export async function GET() {
     .where(eq(vendors.orgId, ctx.org.id))
     .orderBy(desc(claims.createdAt))
     .limit(20)
-    .all();
+    ;
 
   return NextResponse.json({
     items: [

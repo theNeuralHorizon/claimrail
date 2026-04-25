@@ -26,7 +26,7 @@ export default async function ClaimDetailPage({ params }: Params) {
     .from(claims)
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(and(eq(claims.id, claimId), eq(vendors.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!row) notFound();
   const { c: claim, v: vendor } = row;
 

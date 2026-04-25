@@ -134,7 +134,7 @@ export async function recordProbe(vendorId: string, result: ProbeResult): Promis
       latencyMs: result.latencyMs,
       errorMessage: result.errorMessage,
     })
-    .run();
+    ;
 }
 
 export interface ProbeRunSummary {
@@ -153,7 +153,7 @@ export async function runProbesForOrg(orgId: string): Promise<ProbeRunSummary[]>
     .select()
     .from(vendors)
     .where(and(eq(vendors.orgId, orgId), eq(vendors.isActive, true)))
-    .all();
+    ;
 
   const summaries: ProbeRunSummary[] = [];
   for (const v of activeVendors) {
@@ -182,7 +182,7 @@ export async function reconcileIncidents(vendorId: string): Promise<number> {
     .from(probes)
     .where(and(eq(probes.vendorId, vendorId), gte(probes.checkedAt, lookbackStart)))
     .orderBy(desc(probes.checkedAt))
-    .all();
+    ;
 
   const consolidated = consolidateIncidents(
     probeRows.map((p) => ({ checkedAt: p.checkedAt, status: p.status })),
@@ -193,7 +193,7 @@ export async function reconcileIncidents(vendorId: string): Promise<number> {
     .select()
     .from(incidents)
     .where(and(eq(incidents.vendorId, vendorId), gte(incidents.startedAt, lookbackStart)))
-    .all();
+    ;
 
   let newCount = 0;
   for (const inc of consolidated) {
@@ -216,7 +216,7 @@ export async function reconcileIncidents(vendorId: string): Promise<number> {
             isResolved: inc.endedAt != null,
           })
           .where(eq(incidents.id, match.id))
-          .run();
+          ;
       }
       continue;
     }
@@ -233,7 +233,7 @@ export async function reconcileIncidents(vendorId: string): Promise<number> {
         summary: `Auto-detected outage · ${inc.probeCount} failed probes`,
         isResolved: inc.endedAt != null,
       })
-      .run();
+      ;
     newCount += 1;
   }
   return newCount;

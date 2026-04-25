@@ -26,7 +26,7 @@ export default async function AcceptInvitePage({ searchParams }: SearchParams) {
     return <Shell title="This invite is no longer valid" description="It may have been revoked, already accepted, or expired after 7 days." />;
   }
 
-  const org = await db.select().from(orgs).where(eq(orgs.id, invite.orgId)).get();
+  const org = await db.select().from(orgs).where(eq(orgs.id, invite.orgId)).then((r) => r[0]);
   const ctx = await getAuthContext();
 
   // If the current session matches the invite email, one-click accept.

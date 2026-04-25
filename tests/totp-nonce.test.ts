@@ -35,7 +35,7 @@ async function makeUser() {
   await db
     .insert(users)
     .values({ id, email: `${id}@t.example`, name: 'T', passwordHash: hash })
-    .run();
+    ;
   return id;
 }
 

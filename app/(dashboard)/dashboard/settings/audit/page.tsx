@@ -28,7 +28,7 @@ export default async function AuditPage() {
     .where(eq(auditEvents.orgId, ctx.org.id))
     .orderBy(desc(auditEvents.seq))
     .limit(500)
-    .all();
+    ;
 
   return (
     <div className="p-8 space-y-6 max-w-5xl">

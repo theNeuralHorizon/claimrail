@@ -41,10 +41,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select()
     .from(vendors)
     .where(and(eq(vendors.id, vendorId), eq(vendors.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
 
-  const tiers = await db.select().from(slaTerms).where(eq(slaTerms.vendorId, vendor.id)).all();
+  const tiers = await db.select().from(slaTerms).where(eq(slaTerms.vendorId, vendor.id));
   if (tiers.length === 0) {
     return NextResponse.json({ error: 'No SLA tiers configured.' }, { status: 400 });
   }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select()
     .from(incidents)
     .where(eq(incidents.vendorId, vendor.id))
-    .all();
+    ;
 
   const report = computeUptimeReport(
     period,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select()
     .from(claims)
     .where(and(eq(claims.vendorId, vendor.id), eq(claims.period, period)))
-    .get();
+    .then((r) => r[0]);
   if (existing) {
     return NextResponse.json({ id: existing.id, reused: true });
   }
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       emailBody: generated.body,
       evidenceJson: JSON.stringify(generated.evidence),
     })
-    .run();
+    ;
 
   await appendAuditEvent({
     orgId: ctx.org.id,

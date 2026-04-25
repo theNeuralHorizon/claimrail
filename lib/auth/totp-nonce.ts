@@ -22,7 +22,7 @@ export async function pinTotpStep(userId: string, step: number): Promise<boolean
     await db
       .insert(totpReplayNonces)
       .values({ id: nanoid(16), userId, step })
-      .run();
+      ;
     // Housekeeping: drop anything older than ±5 steps ago to keep the
     // table small. Doing this inline is cheap because the index is on
     // (user_id, step).
@@ -34,7 +34,7 @@ export async function pinTotpStep(userId: string, step: number): Promise<boolean
           lt(totpReplayNonces.step, step - 5),
         ),
       )
-      .run();
+      ;
     return true;
   } catch {
     // Unique-constraint violation means this step was already accepted

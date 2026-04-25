@@ -42,7 +42,7 @@ async function makeUser(): Promise<string> {
   await db
     .insert(users)
     .values({ id, email: `${id}@test.example`, name: 'Test User', passwordHash: hash })
-    .run();
+    ;
   return id;
 }
 
@@ -84,7 +84,7 @@ describe('lockout', () => {
     for (let i = 0; i < LOCK_THRESHOLD; i += 1) {
       await recordFailedLogin(uid);
     }
-    const u = await db.select().from(users).where(eq(users.id, uid)).get();
+    const u = await db.select().from(users).where(eq(users.id, uid)).then((r) => r[0]);
     expect(u?.failedLoginCount).toBe(LOCK_THRESHOLD);
     expect(isLocked(u!)).toBe(true);
   });
@@ -94,7 +94,7 @@ describe('lockout', () => {
     await recordFailedLogin(uid);
     await recordFailedLogin(uid);
     await recordSuccessfulLogin(uid);
-    const u = await db.select().from(users).where(eq(users.id, uid)).get();
+    const u = await db.select().from(users).where(eq(users.id, uid)).then((r) => r[0]);
     expect(u?.failedLoginCount).toBe(0);
     expect(u?.lockedUntil).toBeNull();
   });

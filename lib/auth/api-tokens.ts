@@ -45,7 +45,7 @@ export async function issueApiToken(input: {
       tokenHash,
       scope: input.scope,
     })
-    .run();
+    ;
   return { id, name: input.name, scope: input.scope, rawToken, prefix };
 }
 
@@ -56,7 +56,7 @@ export async function revokeApiToken(orgId: string, tokenId: string): Promise<bo
     .set({ revokedAt: now })
     .where(and(eq(apiTokens.id, tokenId), eq(apiTokens.orgId, orgId), isNull(apiTokens.revokedAt)))
     .returning()
-    .all();
+    ;
   return res.length > 0;
 }
 
@@ -76,7 +76,7 @@ export async function resolveApiToken(raw: string): Promise<ResolvedApiToken | n
     .select()
     .from(apiTokens)
     .where(eq(apiTokens.tokenHash, digestToken(raw)))
-    .get();
+    .then((r) => r[0]);
   if (!row) return null;
   if (row.revokedAt != null) return null;
   // Fire-and-forget lastUsedAt bump.
@@ -84,7 +84,7 @@ export async function resolveApiToken(raw: string): Promise<ResolvedApiToken | n
     .update(apiTokens)
     .set({ lastUsedAt: Math.floor(Date.now() / 1000) })
     .where(eq(apiTokens.id, row.id))
-    .run();
+    ;
   return { orgId: row.orgId, scope: row.scope, tokenId: row.id };
 }
 

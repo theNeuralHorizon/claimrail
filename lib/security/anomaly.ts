@@ -59,7 +59,7 @@ export async function evaluateLoginAnomalies(params: {
     )
     .orderBy(desc(securityEvents.createdAt))
     .limit(100)
-    .all();
+    ;
 
   // New-device: no prior login event matches this fingerprint.
   const fp = hashFingerprint(ua, ip);

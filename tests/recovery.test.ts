@@ -28,7 +28,7 @@ describe('getMonthlyRecovery', () => {
   it('buckets filed + recovered by period, pads zeros for empty months', async () => {
     const orgId = nanoid(16);
     const vendorId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'A', slug: `a-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'A', slug: `a-${nanoid(6)}` });
     await db
       .insert(vendors)
       .values({
@@ -38,7 +38,7 @@ describe('getMonthlyRecovery', () => {
         monitorUrl: 'https://example.com',
         monthlySpendCents: 100_000,
       })
-      .run();
+      ;
 
     // Pick three recent periods to load.
     const now = new Date();
@@ -67,7 +67,7 @@ describe('getMonthlyRecovery', () => {
         emailBody: 'b',
         evidenceJson: '{}',
       })
-      .run();
+      ;
 
     // One recovered claim in periodB with actual money in.
     await db
@@ -87,7 +87,7 @@ describe('getMonthlyRecovery', () => {
         emailBody: 'b',
         evidenceJson: '{}',
       })
-      .run();
+      ;
 
     // Draft-only claim in periodB — should NOT count toward filed.
     // Use a second vendor because (vendor_id, period) is unique.
@@ -101,7 +101,7 @@ describe('getMonthlyRecovery', () => {
         monitorUrl: 'https://example.com/2',
         monthlySpendCents: 50_000,
       })
-      .run();
+      ;
     await db
       .insert(claims)
       .values({
@@ -118,7 +118,7 @@ describe('getMonthlyRecovery', () => {
         emailBody: 'b',
         evidenceJson: '{}',
       })
-      .run();
+      ;
 
     const result = await getMonthlyRecovery(orgId, 6);
     expect(result).toHaveLength(6);
@@ -134,7 +134,7 @@ describe('getMonthlyRecovery', () => {
 
   it('returns all zeros for an org with no claims', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'Empty', slug: `empty-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'Empty', slug: `empty-${nanoid(6)}` });
     const result = await getMonthlyRecovery(orgId, 4);
     expect(result).toHaveLength(4);
     for (const r of result) {

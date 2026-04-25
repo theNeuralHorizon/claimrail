@@ -29,12 +29,12 @@ afterAll(() => {
 async function seedOrgUser() {
   const orgId = nanoid(16);
   const userId = nanoid(16);
-  await db.insert(orgs).values({ id: orgId, name: 'Acme', slug: `acme-${nanoid(6)}` }).run();
+  await db.insert(orgs).values({ id: orgId, name: 'Acme', slug: `acme-${nanoid(6)}` });
   const hash = await hashPassword('ClaimRail!2026-ok');
   await db
     .insert(users)
     .values({ id: userId, email: `${userId}@t.example`, name: 'T', passwordHash: hash })
-    .run();
+    ;
   return { orgId, userId };
 }
 

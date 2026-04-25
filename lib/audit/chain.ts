@@ -68,7 +68,7 @@ export async function appendAuditEvent(evt: AppendAuditEvent): Promise<void> {
     .where(eq(auditEvents.orgId, evt.orgId))
     .orderBy(desc(auditEvents.seq))
     .limit(1)
-    .get();
+    .then((r) => r[0]);
   const prevHash = prev?.rowHash ?? null;
   const seq = (prev?.seq ?? 0) + 1;
 
@@ -100,7 +100,7 @@ export async function appendAuditEvent(evt: AppendAuditEvent): Promise<void> {
       rowHash,
       createdAt,
     })
-    .run();
+    ;
 }
 
 export interface AuditVerifyResult {
@@ -116,7 +116,7 @@ export async function verifyAuditChain(orgId: string): Promise<AuditVerifyResult
     .from(auditEvents)
     .where(eq(auditEvents.orgId, orgId))
     .orderBy(asc(auditEvents.seq))
-    .all();
+    ;
   let lastHash: string | null = null;
   let lastSeq = 0;
   let hashChainStarted = false;

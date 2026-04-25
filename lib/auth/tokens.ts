@@ -44,7 +44,7 @@ export async function issueToken(
         isNull(verificationTokens.usedAt),
       ),
     )
-    .run();
+    ;
 
   const raw = generateRandomToken(32);
   const tokenHash = hashToken(raw);
@@ -53,7 +53,7 @@ export async function issueToken(
   await db
     .insert(verificationTokens)
     .values({ id, tokenHash, userId, purpose, expiresAt })
-    .run();
+    ;
   return { rawToken: raw, tokenId: id, expiresAt };
 }
 
@@ -80,7 +80,7 @@ export async function consumeToken(
         eq(verificationTokens.purpose, purpose),
       ),
     )
-    .get();
+    .then((r) => r[0]);
   if (!row) return null;
   if (row.usedAt != null) return null;
   if (row.expiresAt < Math.floor(Date.now() / 1000)) return null;
@@ -98,7 +98,7 @@ export async function consumeToken(
       ),
     )
     .returning()
-    .all();
+    ;
   if (upd.length === 0) return null;
   return { userId: row.userId };
 }

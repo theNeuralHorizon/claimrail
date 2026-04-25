@@ -44,7 +44,7 @@ export async function issueInvitation(input: {
       invitedBy: input.invitedBy,
       expiresAt,
     })
-    .run();
+    ;
   return { id, rawToken, expiresAt };
 }
 
@@ -65,7 +65,7 @@ export async function resolveInvitation(rawToken: string): Promise<ResolvedInvit
     .select()
     .from(invitations)
     .where(eq(invitations.tokenHash, digestToken(rawToken)))
-    .get();
+    .then((r) => r[0]);
   if (!row) return null;
   if (row.acceptedAt != null) return null;
   if (row.revokedAt != null) return null;
@@ -90,7 +90,7 @@ export async function consumeInvitation(invitationId: string): Promise<boolean> 
     .set({ acceptedAt: now })
     .where(and(eq(invitations.id, invitationId), isNull(invitations.acceptedAt)))
     .returning()
-    .all();
+    ;
   return res.length > 0;
 }
 
@@ -108,7 +108,7 @@ export async function revokeInvitation(orgId: string, invitationId: string): Pro
       ),
     )
     .returning()
-    .all();
+    ;
   return res.length > 0;
 }
 
@@ -124,7 +124,7 @@ export async function tryAttachExistingUser(
     .select()
     .from(users)
     .where(eq(users.email, invite.email))
-    .get();
+    .then((r) => r[0]);
   if (!existing) return { attached: false };
   // Don't accidentally demote an existing owner — only add if no membership
   // exists for this (user, org) pair yet.
@@ -132,7 +132,7 @@ export async function tryAttachExistingUser(
     .select()
     .from(memberships)
     .where(and(eq(memberships.userId, existing.id), eq(memberships.orgId, invite.orgId)))
-    .get();
+    .then((r) => r[0]);
   if (!already) {
     await db
       .insert(memberships)
@@ -142,7 +142,7 @@ export async function tryAttachExistingUser(
         orgId: invite.orgId,
         role: invite.role,
       })
-      .run();
+      ;
   }
   await consumeInvitation(invite.id);
   return { attached: true };

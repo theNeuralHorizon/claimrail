@@ -28,7 +28,7 @@ const createSchema = z.object({
 export async function GET() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const rows = await db.select().from(vendors).where(eq(vendors.orgId, ctx.org.id)).all();
+  const rows = await db.select().from(vendors).where(eq(vendors.orgId, ctx.org.id));
   return NextResponse.json(rows);
 }
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       contactEmail: d.contactEmail,
       notes: d.notes ?? d.slaExcerpt?.slice(0, 500) ?? null,
     })
-    .run();
+    ;
 
   let tierRank = 1;
   for (const t of d.tiers.sort((a, b) => b.uptimeThresholdPct - a.uptimeThresholdPct)) {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         tierRank: tierRank++,
         sourceExcerpt: t.sourceExcerpt ?? null,
       })
-      .run();
+      ;
   }
 
   await appendAuditEvent({

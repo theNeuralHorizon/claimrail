@@ -36,14 +36,14 @@ export async function saveSlackWebhook(orgId: string, url: string): Promise<void
     .select()
     .from(integrations)
     .where(and(eq(integrations.orgId, orgId), eq(integrations.kind, 'slack_webhook')))
-    .get();
+    .then((r) => r[0]);
   const configEncrypted = encryptToJson(JSON.stringify({ url }));
   if (existing) {
     await db
       .update(integrations)
       .set({ configEncrypted, enabled: true })
       .where(eq(integrations.id, existing.id))
-      .run();
+      ;
   } else {
     const { nanoid } = await import('nanoid');
     await db
@@ -54,7 +54,7 @@ export async function saveSlackWebhook(orgId: string, url: string): Promise<void
         kind: 'slack_webhook',
         configEncrypted,
       })
-      .run();
+      ;
   }
 }
 
@@ -63,7 +63,7 @@ export async function disableSlackWebhook(orgId: string): Promise<void> {
     .update(integrations)
     .set({ enabled: false })
     .where(and(eq(integrations.orgId, orgId), eq(integrations.kind, 'slack_webhook')))
-    .run();
+    ;
 }
 
 export async function getSlackWebhookUrl(orgId: string): Promise<string | null> {
@@ -77,7 +77,7 @@ export async function getSlackWebhookUrl(orgId: string): Promise<string | null> 
         eq(integrations.enabled, true),
       ),
     )
-    .get();
+    .then((r) => r[0]);
   if (!row) return null;
   try {
     const parsed = JSON.parse(decryptFromJson(row.configEncrypted)) as { url: string };

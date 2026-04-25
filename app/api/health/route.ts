@@ -35,7 +35,7 @@ export async function GET() {
 
   // DB ping — a trivial SELECT 1.
   try {
-    await db.select({ n: sql<number>`1` }).from(orgs).limit(1).all();
+    await db.select({ n: sql<number>`1` }).from(orgs).limit(1);
     result.checks.db = { ok: true };
   } catch (err) {
     result.ok = false;
@@ -53,7 +53,7 @@ export async function GET() {
   ] as const;
   for (const spec of tables) {
     try {
-      const r = await db.select({ c: sql<number>`count(*)` }).from(spec.t).get();
+      const r = await db.select({ c: sql<number>`count(*)` }).from(spec.t).then((r) => r[0]);
       result.checks[spec.name] = { ok: true, value: Number(r?.c ?? 0) };
     } catch (err) {
       result.ok = false;
@@ -71,7 +71,7 @@ export async function GET() {
       .from(probes)
       .orderBy(desc(probes.checkedAt))
       .limit(1)
-      .get();
+      .then((r) => r[0]);
     const now = Math.floor(Date.now() / 1000);
     if (!latest) {
       result.checks.probes = { ok: true, detail: 'no probes yet' };

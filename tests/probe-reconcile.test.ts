@@ -34,11 +34,11 @@ describe('reconcileIncidents', () => {
   it('creates incident rows from a stream of down probes', async () => {
     const orgId = nanoid(16);
     const vendorId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'T', slug: `t-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'T', slug: `t-${nanoid(6)}` });
     await db
       .insert(vendors)
       .values({ id: vendorId, orgId, name: 'V', monitorUrl: 'https://x', monthlySpendCents: 10000 })
-      .run();
+      ;
 
     const now = Math.floor(Date.now() / 1000);
     // Insert 5 consecutive down probes within last hour
@@ -54,7 +54,7 @@ describe('reconcileIncidents', () => {
           latencyMs: null,
           errorMessage: 'boom',
         })
-        .run();
+        ;
     }
     // Plus an up probe just after
     await db
@@ -68,12 +68,12 @@ describe('reconcileIncidents', () => {
         latencyMs: 150,
         errorMessage: null,
       })
-      .run();
+      ;
 
     const newCount = await reconcileIncidents(vendorId);
     expect(newCount).toBe(1);
 
-    const rows = await db.select().from(incidents).where(eq(incidents.vendorId, vendorId)).all();
+    const rows = await db.select().from(incidents).where(eq(incidents.vendorId, vendorId));
     expect(rows).toHaveLength(1);
     expect(rows[0].source).toBe('auto');
     expect(rows[0].durationSeconds).toBeGreaterThan(0);
@@ -82,11 +82,11 @@ describe('reconcileIncidents', () => {
   it('is idempotent — running twice does not duplicate', async () => {
     const orgId = nanoid(16);
     const vendorId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'T2', slug: `t2-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'T2', slug: `t2-${nanoid(6)}` });
     await db
       .insert(vendors)
       .values({ id: vendorId, orgId, name: 'V2', monitorUrl: 'https://x', monthlySpendCents: 1 })
-      .run();
+      ;
     const now = Math.floor(Date.now() / 1000);
     for (let i = 0; i < 3; i++) {
       await db
@@ -100,12 +100,12 @@ describe('reconcileIncidents', () => {
           latencyMs: null,
           errorMessage: null,
         })
-        .run();
+        ;
     }
 
     await reconcileIncidents(vendorId);
     await reconcileIncidents(vendorId);
-    const rows = await db.select().from(incidents).where(eq(incidents.vendorId, vendorId)).all();
+    const rows = await db.select().from(incidents).where(eq(incidents.vendorId, vendorId));
     expect(rows).toHaveLength(1);
   });
 });

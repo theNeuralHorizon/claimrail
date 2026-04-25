@@ -51,7 +51,7 @@ describe('validateSlackWebhookUrl', () => {
 describe('slack webhook storage', () => {
   it('save + read + disable round trip', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'S', slug: `s-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'S', slug: `s-${nanoid(6)}` });
     await saveSlackWebhook(
       orgId,
       'https://hooks.slack.com/services/T123/B456/ABCDEFGHIJ',
@@ -65,7 +65,7 @@ describe('slack webhook storage', () => {
 
   it('fire-and-forget delivery swallows fetch errors', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'S2', slug: `s2-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'S2', slug: `s2-${nanoid(6)}` });
     await saveSlackWebhook(
       orgId,
       'https://hooks.slack.com/services/T000/B000/XXXXXXXXXX',

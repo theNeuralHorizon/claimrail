@@ -26,7 +26,7 @@ export default async function TeamPage() {
     .innerJoin(users, eq(memberships.userId, users.id))
     .where(eq(memberships.orgId, ctx.org.id))
     .orderBy(memberships.createdAt)
-    .all();
+    ;
 
   const pendingInvites = await db
     .select()
@@ -39,7 +39,7 @@ export default async function TeamPage() {
       ),
     )
     .orderBy(desc(invitations.createdAt))
-    .all();
+    ;
 
   const canManage = ctx.role === 'owner' || ctx.role === 'admin';
   const isOwner = ctx.role === 'owner';

@@ -33,7 +33,7 @@ export async function matchesPasswordHistory(
     .where(eq(passwordHistory.userId, userId))
     .orderBy(desc(passwordHistory.createdAt))
     .limit(HISTORY_SIZE)
-    .all();
+    ;
   for (const r of rows) {
     if (await verifyPassword(candidate, r.hash)) return true;
   }
@@ -50,8 +50,14 @@ export async function pushPasswordHistory(
       id: nanoid(16),
       userId,
       passwordHash: previousHash,
+      // Override the seconds-precision DEFAULT so rapid pushes (the
+      // password-history test rotates 7 entries inside one bcrypt-bounded
+      // window) get strictly increasing values. Postgres has no implicit
+      // rowid-style tiebreaker; without ms-precision here the LIMIT-N
+      // prune below would have non-deterministic ordering on ties.
+      createdAt: Date.now(),
     })
-    .run();
+    ;
   // Prune anything past the latest HISTORY_SIZE entries. We do it lazily
   // on write so the table doesn't grow unbounded.
   const keep = await db
@@ -60,16 +66,16 @@ export async function pushPasswordHistory(
     .where(eq(passwordHistory.userId, userId))
     .orderBy(desc(passwordHistory.createdAt))
     .limit(HISTORY_SIZE)
-    .all();
+    ;
   const keepIds = new Set(keep.map((r) => r.id));
   const all = await db
     .select({ id: passwordHistory.id })
     .from(passwordHistory)
     .where(eq(passwordHistory.userId, userId))
-    .all();
+    ;
   for (const row of all) {
     if (!keepIds.has(row.id)) {
-      await db.delete(passwordHistory).where(eq(passwordHistory.id, row.id)).run();
+      await db.delete(passwordHistory).where(eq(passwordHistory.id, row.id));
     }
   }
 }

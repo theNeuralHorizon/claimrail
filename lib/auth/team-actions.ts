@@ -57,13 +57,13 @@ export async function inviteTeammateAction(
 
   // If the invitee is already a member of this org, bail early so we don't
   // spam them with a useless invite email.
-  const existingUser = await db.select().from(users).where(eq(users.email, normalized)).get();
+  const existingUser = await db.select().from(users).where(eq(users.email, normalized)).then((r) => r[0]);
   if (existingUser) {
     const already = await db
       .select()
       .from(memberships)
       .where(and(eq(memberships.userId, existingUser.id), eq(memberships.orgId, ctx.org.id)))
-      .get();
+      .then((r) => r[0]);
     if (already) return { error: 'That person is already a member.' };
   }
 
@@ -168,14 +168,14 @@ export async function changeMemberRoleAction(formData: FormData): Promise<void> 
       .select()
       .from(memberships)
       .where(and(eq(memberships.orgId, ctx.org.id), eq(memberships.role, 'owner')))
-      .all();
+      ;
     if (owners.length <= 1) return;
   }
   await db
     .update(memberships)
     .set({ role: parsedRole.data })
     .where(and(eq(memberships.userId, userId), eq(memberships.orgId, ctx.org.id)))
-    .run();
+    ;
   await appendAuditEvent({
     orgId: ctx.org.id,
     actorId: ctx.user.id,
@@ -197,20 +197,20 @@ export async function removeMemberAction(formData: FormData): Promise<void> {
     .select()
     .from(memberships)
     .where(and(eq(memberships.userId, userId), eq(memberships.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!target) return;
   if (target.role === 'owner') {
     const owners = await db
       .select()
       .from(memberships)
       .where(and(eq(memberships.orgId, ctx.org.id), eq(memberships.role, 'owner')))
-      .all();
+      ;
     if (owners.length <= 1) return;
   }
   await db
     .delete(memberships)
     .where(and(eq(memberships.userId, userId), eq(memberships.orgId, ctx.org.id)))
-    .run();
+    ;
   await appendAuditEvent({
     orgId: ctx.org.id,
     actorId: ctx.user.id,

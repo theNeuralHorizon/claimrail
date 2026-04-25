@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     .select()
     .from(vendors)
     .where(and(eq(vendors.id, vendorId), eq(vendors.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!vendor) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const result = await probeUrl(vendor.monitorUrl);
   await recordProbe(vendor.id, result);

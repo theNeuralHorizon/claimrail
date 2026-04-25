@@ -51,7 +51,7 @@ export async function startTotpSetupAction(
   const parsed = startSchema.safeParse({ password: formData.get('password') });
   if (!parsed.success) return { error: 'Invalid input.' };
 
-  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
   if (!user) return { error: 'Account not found.' };
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) return { error: 'Password incorrect.' };
@@ -98,10 +98,10 @@ export async function confirmTotpSetupAction(
     .update(users)
     .set({ totpSecretEncrypted: encrypted, totpEnabledAt: now })
     .where(eq(users.id, ctx.user.id))
-    .run();
+    ;
 
   // Clear any old backup codes and issue 10 fresh ones.
-  await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, ctx.user.id)).run();
+  await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, ctx.user.id));
   const codes = generateBackupCodes(10);
   for (const code of codes) {
     await db
@@ -111,7 +111,7 @@ export async function confirmTotpSetupAction(
         userId: ctx.user.id,
         codeHash: hashToken(code.toLowerCase().replace(/\s+/g, '')),
       })
-      .run();
+      ;
   }
 
   await appendAuditEvent({
@@ -141,7 +141,7 @@ export async function disableTotpAction(
   const parsed = disableSchema.safeParse({ password: formData.get('password') });
   if (!parsed.success) return { error: 'Password required.' };
 
-  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
   if (!user) return { error: 'Account not found.' };
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) return { error: 'Password incorrect.' };
@@ -150,16 +150,16 @@ export async function disableTotpAction(
     .update(users)
     .set({ totpSecretEncrypted: null, totpEnabledAt: null })
     .where(eq(users.id, ctx.user.id))
-    .run();
-  await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, ctx.user.id)).run();
+    ;
+  await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, ctx.user.id));
 
   // Disabling 2FA is a significant auth event — revoke every other session.
   const { currentSessionId } = await import('./session');
   const current = await currentSessionId();
-  const all = await db.select().from(sessions).where(eq(sessions.userId, ctx.user.id)).all();
+  const all = await db.select().from(sessions).where(eq(sessions.userId, ctx.user.id));
   for (const s of all) {
     if (s.id !== current) {
-      await db.delete(sessions).where(eq(sessions.id, s.id)).run();
+      await db.delete(sessions).where(eq(sessions.id, s.id));
     }
   }
 
