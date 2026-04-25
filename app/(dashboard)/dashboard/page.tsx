@@ -42,10 +42,32 @@ export const metadata = { title: 'Overview · ClaimRail' };
 
 export default async function DashboardPage() {
   const ctx = await requireAuth();
-  const summary = await getDashboardSummary(ctx.org.id);
-  const overviews = await getVendorOverviews(ctx.org.id);
-  const recentIncidents = await getRecentIncidents(ctx.org.id, 5);
-  const recovery = await getMonthlyRecovery(ctx.org.id, 6);
+
+  // Fan out every independent query in parallel — none of these depend on
+  // each other, only on ctx.org.id / ctx.user.id. Cuts page load from 7×
+  // serial round-trips to a single round-trip's worth of latency.
+  const [summary, overviews, recentIncidents, recovery, slackRow, memberCount, me] =
+    await Promise.all([
+      getDashboardSummary(ctx.org.id),
+      getVendorOverviews(ctx.org.id),
+      getRecentIncidents(ctx.org.id, 5),
+      getMonthlyRecovery(ctx.org.id, 6),
+      db
+        .select()
+        .from(integrations)
+        .where(
+          and(
+            eq(integrations.orgId, ctx.org.id),
+            eq(integrations.kind, 'slack_webhook'),
+            eq(integrations.enabled, true),
+          ),
+        )
+        .then((r) => r[0]),
+      db.select().from(memberships).where(eq(memberships.orgId, ctx.org.id)),
+      db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]),
+    ]);
+
+  // Sparklines depend on `overviews`. Already parallel via Promise.all.
   const sparklines = await Promise.all(
     overviews.map(async (o) => ({
       vendorId: o.vendor.id,
@@ -53,25 +75,6 @@ export default async function DashboardPage() {
     })),
   );
   const sparkMap = new Map(sparklines.map((s) => [s.vendorId, s.points]));
-
-  // Onboarding signals.
-  const slackRow = await db
-    .select()
-    .from(integrations)
-    .where(
-      and(
-        eq(integrations.orgId, ctx.org.id),
-        eq(integrations.kind, 'slack_webhook'),
-        eq(integrations.enabled, true),
-      ),
-    )
-    .then((r) => r[0]);
-  const memberCount = await db
-    .select()
-    .from(memberships)
-    .where(eq(memberships.orgId, ctx.org.id))
-    ;
-  const me = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
 
   const onboarding: OnboardingStep[] = [
     {

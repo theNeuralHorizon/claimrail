@@ -21,14 +21,15 @@ function toneForAction(action: string): 'success' | 'warn' | 'danger' | 'info' |
 
 export default async function AuditPage() {
   const ctx = await requireAuth();
-  const chainStatus = await verifyAuditChain(ctx.org.id);
-  const rows = await db
-    .select()
-    .from(auditEvents)
-    .where(eq(auditEvents.orgId, ctx.org.id))
-    .orderBy(desc(auditEvents.seq))
-    .limit(500)
-    ;
+  const [chainStatus, rows] = await Promise.all([
+    verifyAuditChain(ctx.org.id),
+    db
+      .select()
+      .from(auditEvents)
+      .where(eq(auditEvents.orgId, ctx.org.id))
+      .orderBy(desc(auditEvents.seq))
+      .limit(500),
+  ]);
 
   return (
     <div className="p-8 space-y-6 max-w-5xl">

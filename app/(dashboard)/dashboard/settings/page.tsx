@@ -20,24 +20,31 @@ export const metadata = { title: 'Settings · ClaimRail' };
 export default async function SettingsPage() {
   const ctx = await requireAuth();
   const cronUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/cron/probes`;
-  const chainStatus = await verifyAuditChain(ctx.org.id);
-  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
+
+  // Four independent reads — none cross-depend, so fan out in parallel.
+  const [chainStatus, user, slackRow, tokens] = await Promise.all([
+    verifyAuditChain(ctx.org.id),
+    db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]),
+    db
+      .select()
+      .from(integrations)
+      .where(
+        and(
+          eq(integrations.orgId, ctx.org.id),
+          eq(integrations.kind, 'slack_webhook'),
+          eq(integrations.enabled, true),
+        ),
+      )
+      .then((r) => r[0]),
+    db
+      .select()
+      .from(apiTokens)
+      .where(eq(apiTokens.orgId, ctx.org.id))
+      .orderBy(desc(apiTokens.createdAt))
+      .limit(20),
+  ]);
   const emailVerified = user?.emailVerifiedAt != null;
   const totpEnabled = user?.totpEnabledAt != null;
-
-  const slackRow = await db
-    .select()
-    .from(integrations)
-    .where(and(eq(integrations.orgId, ctx.org.id), eq(integrations.kind, 'slack_webhook'), eq(integrations.enabled, true)))
-    .then((r) => r[0]);
-
-  const tokens = await db
-    .select()
-    .from(apiTokens)
-    .where(eq(apiTokens.orgId, ctx.org.id))
-    .orderBy(desc(apiTokens.createdAt))
-    .limit(20)
-    ;
 
   return (
     <div className="p-8 max-w-3xl space-y-6">

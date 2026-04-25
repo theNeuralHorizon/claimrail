@@ -19,6 +19,9 @@ claimrail.db-journal
 *.sqlite
 *.sqlite-journal
 data/
+# PGlite (embedded Postgres) writes a directory of WAL/state files when
+# DATABASE_URL points to a local path or is unset.
+claimrail-data/
 
 .vscode/*
 !.vscode/extensions.json

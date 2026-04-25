@@ -14,32 +14,31 @@ export const metadata = { title: 'Team · ClaimRail' };
 export default async function TeamPage() {
   const ctx = await requireAuth();
 
-  const members = await db
-    .select({
-      userId: users.id,
-      email: users.email,
-      name: users.name,
-      role: memberships.role,
-      joinedAt: memberships.createdAt,
-    })
-    .from(memberships)
-    .innerJoin(users, eq(memberships.userId, users.id))
-    .where(eq(memberships.orgId, ctx.org.id))
-    .orderBy(memberships.createdAt)
-    ;
-
-  const pendingInvites = await db
-    .select()
-    .from(invitations)
-    .where(
-      and(
-        eq(invitations.orgId, ctx.org.id),
-        isNull(invitations.acceptedAt),
-        isNull(invitations.revokedAt),
-      ),
-    )
-    .orderBy(desc(invitations.createdAt))
-    ;
+  const [members, pendingInvites] = await Promise.all([
+    db
+      .select({
+        userId: users.id,
+        email: users.email,
+        name: users.name,
+        role: memberships.role,
+        joinedAt: memberships.createdAt,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(memberships.userId, users.id))
+      .where(eq(memberships.orgId, ctx.org.id))
+      .orderBy(memberships.createdAt),
+    db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.orgId, ctx.org.id),
+          isNull(invitations.acceptedAt),
+          isNull(invitations.revokedAt),
+        ),
+      )
+      .orderBy(desc(invitations.createdAt)),
+  ]);
 
   const canManage = ctx.role === 'owner' || ctx.role === 'admin';
   const isOwner = ctx.role === 'owner';
