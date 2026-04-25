@@ -35,16 +35,16 @@ afterAll(() => {
 async function seedOrgOwner() {
   const orgId = nanoid(16);
   const ownerId = nanoid(16);
-  await db.insert(orgs).values({ id: orgId, name: 'Acme', slug: `acme-${nanoid(6)}` }).run();
+  await db.insert(orgs).values({ id: orgId, name: 'Acme', slug: `acme-${nanoid(6)}` });
   const hash = await hashPassword('ClaimRail!2026-ok');
   await db
     .insert(users)
     .values({ id: ownerId, email: `owner-${ownerId}@t.example`, name: 'Owner', passwordHash: hash })
-    .run();
+    ;
   await db
     .insert(memberships)
     .values({ id: nanoid(16), userId: ownerId, orgId, role: 'owner' })
-    .run();
+    ;
   return { orgId, ownerId };
 }
 
@@ -116,7 +116,7 @@ describe('invitations', () => {
     await db
       .insert(users)
       .values({ id: inviteeId, email, name: 'Invitee', passwordHash: hash })
-      .run();
+      ;
     const issued = await issueInvitation({ orgId, email, role: 'admin', invitedBy: ownerId });
     const resolved = await resolveInvitation(issued.rawToken);
     expect(resolved).not.toBeNull();
@@ -126,7 +126,7 @@ describe('invitations', () => {
       .select()
       .from(memberships)
       .where(and(eq(memberships.userId, inviteeId), eq(memberships.orgId, orgId)))
-      .get();
+      .then((r) => r[0]);
     expect(mem?.role).toBe('admin');
     // Invite is consumed.
     expect(await resolveInvitation(issued.rawToken)).toBeNull();

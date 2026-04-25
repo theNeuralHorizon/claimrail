@@ -16,7 +16,7 @@ interface Check {
 async function runChecks(): Promise<Check[]> {
   const checks: Check[] = [];
   try {
-    await db.select({ n: sql<number>`1` }).from(users).limit(1).all();
+    await db.select({ n: sql<number>`1` }).from(users).limit(1);
     checks.push({ name: 'Database', ok: true, detail: 'Responding' });
   } catch (err) {
     checks.push({
@@ -32,7 +32,7 @@ async function runChecks(): Promise<Check[]> {
   ];
   for (const [name, t] of tables) {
     try {
-      await db.select({ c: sql<number>`count(*)` }).from(t).get();
+      await db.select({ c: sql<number>`count(*)` }).from(t).then((r) => r[0]);
       checks.push({ name: `${name} table`, ok: true, detail: 'Reachable' });
     } catch {
       checks.push({ name: `${name} table`, ok: false, detail: 'Not reachable' });
@@ -44,7 +44,7 @@ async function runChecks(): Promise<Check[]> {
       .from(probes)
       .orderBy(desc(probes.checkedAt))
       .limit(1)
-      .get();
+      .then((r) => r[0]);
     if (!last) {
       checks.push({ name: 'Probe cron', ok: true, detail: 'No probes yet (fresh install)' });
     } else {

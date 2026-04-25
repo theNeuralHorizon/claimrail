@@ -24,7 +24,7 @@ async function requireCronSecret(req: NextRequest): Promise<NextResponse | null>
 export async function GET(req: NextRequest) {
   const forbidden = await requireCronSecret(req);
   if (forbidden) return forbidden;
-  const allOrgs = await db.select().from(orgs).all();
+  const allOrgs = await db.select().from(orgs);
   const report: Array<{
     orgId: string;
     summaries: Awaited<ReturnType<typeof runProbesForOrg>>;

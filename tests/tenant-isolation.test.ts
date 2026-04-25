@@ -46,8 +46,8 @@ describe('tenant isolation', () => {
   it('queries scoped to org A do not return org B data', async () => {
     const orgA = nanoid(16);
     const orgB = nanoid(16);
-    await db.insert(orgs).values({ id: orgA, name: 'Acme', slug: `acme-${nanoid(6)}` }).run();
-    await db.insert(orgs).values({ id: orgB, name: 'Beta', slug: `beta-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgA, name: 'Acme', slug: `acme-${nanoid(6)}` });
+    await db.insert(orgs).values({ id: orgB, name: 'Beta', slug: `beta-${nanoid(6)}` });
 
     const vendorA = nanoid(16);
     const vendorB = nanoid(16);
@@ -60,7 +60,7 @@ describe('tenant isolation', () => {
         monitorUrl: 'https://a.example.com',
         monthlySpendCents: 1_000_00,
       })
-      .run();
+      ;
     await db
       .insert(vendors)
       .values({
@@ -70,7 +70,7 @@ describe('tenant isolation', () => {
         monitorUrl: 'https://b.example.com',
         monthlySpendCents: 2_000_00,
       })
-      .run();
+      ;
 
     await db
       .insert(slaTerms)
@@ -81,7 +81,7 @@ describe('tenant isolation', () => {
         creditPct: 10,
         tierRank: 1,
       })
-      .run();
+      ;
     await db
       .insert(slaTerms)
       .values({
@@ -91,7 +91,7 @@ describe('tenant isolation', () => {
         creditPct: 10,
         tierRank: 1,
       })
-      .run();
+      ;
 
     await db
       .insert(claims)
@@ -108,7 +108,7 @@ describe('tenant isolation', () => {
         emailBody: 'b',
         evidenceJson: '{}',
       })
-      .run();
+      ;
 
     // Vendors
     const vendorsA = await getOrgVendors(orgA);

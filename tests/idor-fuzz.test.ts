@@ -32,7 +32,7 @@ async function seedOrg(slugPrefix: string): Promise<{ orgId: string; vendorId: s
   const orgId = nanoid(16);
   const vendorId = nanoid(16);
   const claimId = nanoid(16);
-  await db.insert(orgs).values({ id: orgId, name: slugPrefix, slug: `${slugPrefix}-${nanoid(6)}` }).run();
+  await db.insert(orgs).values({ id: orgId, name: slugPrefix, slug: `${slugPrefix}-${nanoid(6)}` });
   await db
     .insert(vendors)
     .values({
@@ -42,11 +42,11 @@ async function seedOrg(slugPrefix: string): Promise<{ orgId: string; vendorId: s
       monitorUrl: 'https://example.com',
       monthlySpendCents: 10_000,
     })
-    .run();
+    ;
   await db
     .insert(slaTerms)
     .values({ id: nanoid(16), vendorId, uptimeThresholdPct: 99.9, creditPct: 10, tierRank: 1 })
-    .run();
+    ;
   await db
     .insert(incidents)
     .values({
@@ -59,7 +59,7 @@ async function seedOrg(slugPrefix: string): Promise<{ orgId: string; vendorId: s
       source: 'auto',
       summary: 'test',
     })
-    .run();
+    ;
   await db
     .insert(probes)
     .values({
@@ -70,7 +70,7 @@ async function seedOrg(slugPrefix: string): Promise<{ orgId: string; vendorId: s
       httpStatus: 200,
       latencyMs: 100,
     })
-    .run();
+    ;
   await db
     .insert(claims)
     .values({
@@ -86,7 +86,7 @@ async function seedOrg(slugPrefix: string): Promise<{ orgId: string; vendorId: s
       emailBody: 'b',
       evidenceJson: '{}',
     })
-    .run();
+    ;
   return { orgId, vendorId, claimId };
 }
 

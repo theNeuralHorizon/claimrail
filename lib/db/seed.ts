@@ -2,7 +2,7 @@
  * Seed script — creates a realistic demo tenant so `/dashboard` is populated
  * on first boot. Run with `npm run db:seed` (idempotent: clears then recreates).
  */
-import { db, libsql } from './client';
+import { db, sqlClient } from './client';
 import { migrate } from './migrate';
 import {
   orgs,
@@ -110,24 +110,24 @@ async function main() {
   const now = Math.floor(Date.now() / 1000);
   const demoEmail = 'demo@claimrail.io';
 
-  const existingUser = await db.select().from(users).where(eq(users.email, demoEmail)).get();
+  const existingUser = await db.select().from(users).where(eq(users.email, demoEmail)).then((r) => r[0]);
   if (existingUser) {
     const memberOrgs = await db
       .select({ orgId: memberships.orgId })
       .from(memberships)
       .where(eq(memberships.userId, existingUser.id))
-      .all();
+      ;
     for (const { orgId } of memberOrgs) {
-      await db.delete(orgs).where(eq(orgs.id, orgId)).run();
+      await db.delete(orgs).where(eq(orgs.id, orgId));
     }
-    await db.delete(users).where(eq(users.id, existingUser.id)).run();
+    await db.delete(users).where(eq(users.id, existingUser.id));
   }
 
   const orgId = nanoid(16);
   const userId = nanoid(16);
   const passwordHash = await hashPassword('DemoRail!2026');
 
-  await db.insert(orgs).values({ id: orgId, name: 'Acme Industries', slug: 'acme', plan: 'pro' }).run();
+  await db.insert(orgs).values({ id: orgId, name: 'Acme Industries', slug: 'acme', plan: 'pro' });
   await db
     .insert(users)
     .values({
@@ -138,8 +138,8 @@ async function main() {
       // Pre-verify demo user so they don't get stuck behind the verify page.
       emailVerifiedAt: Math.floor(Date.now() / 1000),
     })
-    .run();
-  await db.insert(memberships).values({ id: nanoid(16), userId, orgId, role: 'owner' }).run();
+    ;
+  await db.insert(memberships).values({ id: nanoid(16), userId, orgId, role: 'owner' });
 
   for (const seed of VENDOR_SEEDS) {
     const vendorId = nanoid(16);
@@ -154,7 +154,7 @@ async function main() {
         contactEmail: seed.contactEmail,
         notes: seed.notes,
       })
-      .run();
+      ;
 
     let tierRank = 1;
     for (const t of seed.tiers) {
@@ -168,7 +168,7 @@ async function main() {
           tierRank: tierRank++,
           sourceExcerpt: t.sourceExcerpt,
         })
-        .run();
+        ;
     }
 
     const INTERVAL = 15 * 60;
@@ -223,7 +223,7 @@ async function main() {
     }
     const CHUNK = 200;
     for (let i = 0; i < probeRows.length; i += CHUNK) {
-      await db.insert(probes).values(probeRows.slice(i, i + CHUNK)).run();
+      await db.insert(probes).values(probeRows.slice(i, i + CHUNK));
     }
 
     const consolidated = consolidateIncidents(
@@ -244,7 +244,7 @@ async function main() {
           source: 'auto',
           isResolved: inc.endedAt != null,
         })
-        .run();
+        ;
     }
 
     const period = currentPeriod();
@@ -259,7 +259,7 @@ async function main() {
         .select()
         .from(incidents)
         .where(eq(incidents.vendorId, vendorId))
-        .all();
+        ;
       const report = computeUptimeReport(
         p,
         incidentRows.map((i) => ({
@@ -316,7 +316,7 @@ async function main() {
             emailBody: generated.body,
             evidenceJson: JSON.stringify(generated.evidence),
           })
-          .run();
+          ;
       }
     }
   }
@@ -333,4 +333,6 @@ main()
     console.error('Seed failed:', err);
     process.exit(1);
   })
-  .finally(() => libsql.close());
+  .finally(async () => {
+    await sqlClient.end({ timeout: 5 }).catch(() => null);
+  });

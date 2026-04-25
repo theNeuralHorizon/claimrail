@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from(claims)
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(and(eq(claims.id, params.claimId), eq(vendors.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const buf = renderClaimPdf({

@@ -173,7 +173,7 @@ export async function signupAction(
     .select()
     .from(users)
     .where(eq(users.email, normalizedEmail))
-    .get();
+    .then((r) => r[0]);
   if (existing) {
     return {
       error: 'We could not create that account. Try signing in or use a different email.',
@@ -184,7 +184,7 @@ export async function signupAction(
   const orgId = nanoid(16);
   let slug = slugify(orgName) || `org-${nanoid(6)}`;
   let attempt = 0;
-  while (await db.select().from(orgs).where(eq(orgs.slug, slug)).get()) {
+  while (await db.select().from(orgs).where(eq(orgs.slug, slug)).then((r) => r[0])) {
     attempt += 1;
     slug = `${slugify(orgName) || 'org'}-${attempt}`;
     if (attempt > 10) slug = `org-${nanoid(6)}`;
@@ -194,12 +194,12 @@ export async function signupAction(
   await db
     .insert(users)
     .values({ id: userId, email: normalizedEmail, name, passwordHash })
-    .run();
-  await db.insert(orgs).values({ id: orgId, name: orgName, slug }).run();
+    ;
+  await db.insert(orgs).values({ id: orgId, name: orgName, slug });
   await db
     .insert(memberships)
     .values({ id: nanoid(16), userId, orgId, role: 'owner' })
-    .run();
+    ;
 
   const token = await issueToken(userId, 'email_verify');
   await sendEmail({
@@ -255,7 +255,7 @@ export async function loginAction(
     .select()
     .from(users)
     .where(eq(users.email, normalizedEmail))
-    .get();
+    .then((r) => r[0]);
 
   if (!user) {
     await runDummyVerify();
@@ -325,13 +325,13 @@ export async function loginAction(
         .select()
         .from(totpBackupCodes)
         .where(and(eq(totpBackupCodes.userId, user.id), eq(totpBackupCodes.codeHash, hash)))
-        .get();
+        .then((r) => r[0]);
       if (row && !row.usedAt) {
         await db
           .update(totpBackupCodes)
           .set({ usedAt: Math.floor(Date.now() / 1000) })
           .where(eq(totpBackupCodes.id, row.id))
-          .run();
+          ;
         valid = true;
       }
     }
@@ -400,7 +400,7 @@ export async function resendVerificationForm(): Promise<void> {
 export async function resendVerificationAction(): Promise<ActionState> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: 'Sign in first.' };
-  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
   if (!user) return { error: 'Account not found.' };
   if (user.emailVerifiedAt) return { success: 'Already verified.' };
 
@@ -430,7 +430,7 @@ export async function confirmEmailAction(formData: FormData): Promise<void> {
     .update(users)
     .set({ emailVerifiedAt: Math.floor(Date.now() / 1000) })
     .where(eq(users.id, consumed.userId))
-    .run();
+    ;
   redirect('/dashboard?verified=1');
 }
 
@@ -460,7 +460,7 @@ export async function changePasswordAction(
   const rl = rateLimit(`pwchange:${ctx.user.id}`, { limit: 10, windowSeconds: 3600 });
   if (!rl.allowed) return { error: 'Too many attempts. Try again in an hour.' };
 
-  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+  const user = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
   if (!user) return { error: 'Account not found.' };
   const ok = await verifyPassword(parsed.data.currentPassword, user.passwordHash);
   if (!ok) return { error: 'Current password is incorrect.' };
@@ -486,14 +486,14 @@ export async function changePasswordAction(
 
   const oldHash = user.passwordHash;
   const hash = await hashPassword(parsed.data.newPassword);
-  await db.update(users).set({ passwordHash: hash }).where(eq(users.id, user.id)).run();
+  await db.update(users).set({ passwordHash: hash }).where(eq(users.id, user.id));
   await pushPasswordHistory(user.id, oldHash);
 
   const current = await currentSessionId();
-  const allSessions = await db.select().from(sessions).where(eq(sessions.userId, user.id)).all();
+  const allSessions = await db.select().from(sessions).where(eq(sessions.userId, user.id));
   for (const s of allSessions) {
     if (s.id !== current) {
-      await db.delete(sessions).where(eq(sessions.id, s.id)).run();
+      await db.delete(sessions).where(eq(sessions.id, s.id));
     }
   }
 
@@ -531,7 +531,7 @@ export async function forgotPasswordAction(
     return { success: 'If that email exists, a reset link has been sent.' };
   }
   const normalized = parsed.data.email.toLowerCase().trim();
-  const user = await db.select().from(users).where(eq(users.email, normalized)).get();
+  const user = await db.select().from(users).where(eq(users.email, normalized)).then((r) => r[0]);
   if (user) {
     const token = await issueToken(user.id, 'password_reset');
     await sendEmail({
@@ -572,7 +572,7 @@ export async function resetPasswordAction(
 
   const consumed = await consumeToken(parsed.data.token, 'password_reset');
   if (!consumed) return { error: 'This reset link is invalid or expired.' };
-  const user = await db.select().from(users).where(eq(users.id, consumed.userId)).get();
+  const user = await db.select().from(users).where(eq(users.id, consumed.userId)).then((r) => r[0]);
   if (!user) return { error: 'Account not found.' };
 
   const policy = checkPasswordPolicy(parsed.data.newPassword, {
@@ -595,9 +595,9 @@ export async function resetPasswordAction(
     .update(users)
     .set({ passwordHash: hash, failedLoginCount: 0, lockedUntil: null })
     .where(eq(users.id, user.id))
-    .run();
+    ;
   await pushPasswordHistory(user.id, oldHash);
-  await db.delete(sessions).where(eq(sessions.userId, user.id)).run();
+  await db.delete(sessions).where(eq(sessions.userId, user.id));
   await logSecurityEvent({
     kind: 'password.reset.succeeded',
     userId: user.id,

@@ -26,7 +26,7 @@ afterAll(() => {
 describe('audit chain', () => {
   it('chains events and verifies intact', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'A', slug: `a-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'A', slug: `a-${nanoid(6)}` });
     for (let i = 0; i < 5; i += 1) {
       await appendAuditEvent({
         orgId,
@@ -44,7 +44,7 @@ describe('audit chain', () => {
 
   it('detects tampered metadata', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'B', slug: `b-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'B', slug: `b-${nanoid(6)}` });
     for (let i = 0; i < 3; i += 1) {
       await appendAuditEvent({
         orgId,
@@ -57,13 +57,13 @@ describe('audit chain', () => {
     }
     // Tamper: mutate the middle row's metadata so its recorded row_hash is
     // now wrong.
-    const rows = await db.select().from(auditEvents).where(eq(auditEvents.orgId, orgId)).all();
+    const rows = await db.select().from(auditEvents).where(eq(auditEvents.orgId, orgId));
     const victim = rows[1];
     await db
       .update(auditEvents)
       .set({ metadataJson: JSON.stringify({ index: 999 }) })
       .where(eq(auditEvents.id, victim.id))
-      .run();
+      ;
 
     const r = await verifyAuditChain(orgId);
     expect(r.ok).toBe(false);
@@ -72,7 +72,7 @@ describe('audit chain', () => {
 
   it('detects a deleted middle row', async () => {
     const orgId = nanoid(16);
-    await db.insert(orgs).values({ id: orgId, name: 'C', slug: `c-${nanoid(6)}` }).run();
+    await db.insert(orgs).values({ id: orgId, name: 'C', slug: `c-${nanoid(6)}` });
     for (let i = 0; i < 3; i += 1) {
       await appendAuditEvent({
         orgId,
@@ -82,8 +82,8 @@ describe('audit chain', () => {
         resourceId: `w-${i}`,
       });
     }
-    const rows = await db.select().from(auditEvents).where(eq(auditEvents.orgId, orgId)).all();
-    await db.delete(auditEvents).where(eq(auditEvents.id, rows[1].id)).run();
+    const rows = await db.select().from(auditEvents).where(eq(auditEvents.orgId, orgId));
+    await db.delete(auditEvents).where(eq(auditEvents.id, rows[1].id));
 
     const r = await verifyAuditChain(orgId);
     expect(r.ok).toBe(false);

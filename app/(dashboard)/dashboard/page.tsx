@@ -65,13 +65,13 @@ export default async function DashboardPage() {
         eq(integrations.enabled, true),
       ),
     )
-    .get();
+    .then((r) => r[0]);
   const memberCount = await db
     .select()
     .from(memberships)
     .where(eq(memberships.orgId, ctx.org.id))
-    .all();
-  const me = await db.select().from(users).where(eq(users.id, ctx.user.id)).get();
+    ;
+  const me = await db.select().from(users).where(eq(users.id, ctx.user.id)).then((r) => r[0]);
 
   const onboarding: OnboardingStep[] = [
     {

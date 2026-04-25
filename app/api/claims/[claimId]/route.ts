@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .from(claims)
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(and(eq(claims.id, claimId), eq(vendors.orgId, ctx.org.id)))
-    .get();
+    .then((r) => r[0]);
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const patch: Record<string, unknown> = {};
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'No changes' }, { status: 400 });
   }
-  await db.update(claims).set(patch).where(eq(claims.id, claimId)).run();
+  await db.update(claims).set(patch).where(eq(claims.id, claimId));
 
   await appendAuditEvent({
     orgId: ctx.org.id,

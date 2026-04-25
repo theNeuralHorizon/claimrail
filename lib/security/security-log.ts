@@ -92,7 +92,7 @@ export async function logSecurityEvent(evt: LogSecurityEvent): Promise<void> {
       country: evt.country ?? null,
       metadataJson: evt.metadata ? JSON.stringify(evt.metadata) : null,
     })
-    .run();
+    ;
   // Mirror to stdout — log-injection-safe. In prod you'd pipe this to
   // Datadog / Splunk / your SIEM.
   // eslint-disable-next-line no-console

@@ -5,7 +5,7 @@ const nextConfig = {
   // because Next re-adds it after middleware runs.
   poweredByHeader: false,
   experimental: {
-    serverComponentsExternalPackages: ['@libsql/client', 'libsql'],
+    serverComponentsExternalPackages: ['postgres', '@electric-sql/pglite'],
     serverActions: {
       bodySizeLimit: '2mb',
     },

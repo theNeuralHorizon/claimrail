@@ -34,7 +34,7 @@ describe('password history', () => {
     await db
       .insert(users)
       .values({ id, email: `${id}@t.example`, name: 'T', passwordHash: hash })
-      .run();
+      ;
     expect(await matchesPasswordHistory(id, 'ClaimRail!2026-ok', hash)).toBe(true);
     expect(await matchesPasswordHistory(id, 'DifferentPass!2026', hash)).toBe(false);
   });
@@ -47,7 +47,7 @@ describe('password history', () => {
     await db
       .insert(users)
       .values({ id, email: `${id}-b@t.example`, name: 'T', passwordHash: h0 })
-      .run();
+      ;
     // Rotate through PASSWORD_HISTORY_SIZE + 2 passwords.
     const passwords = [
       'First!Pass-2026',
@@ -62,7 +62,7 @@ describe('password history', () => {
     for (const p of passwords) {
       await pushPasswordHistory(id, currentHash);
       currentHash = await hashPassword(p);
-      await db.update(users).set({ passwordHash: currentHash }).where(eq(users.id, id)).run();
+      await db.update(users).set({ passwordHash: currentHash }).where(eq(users.id, id));
     }
     // The most-recent PASSWORD_HISTORY_SIZE passwords should be blocked.
     const recentBlocked = passwords.slice(-PASSWORD_HISTORY_SIZE);
@@ -80,7 +80,7 @@ describe('password history', () => {
     await db
       .insert(users)
       .values({ id, email: `${id}-c@t.example`, name: 'T', passwordHash: h })
-      .run();
+      ;
     for (let i = 0; i < 12; i += 1) {
       await pushPasswordHistory(id, h);
     }
@@ -88,7 +88,7 @@ describe('password history', () => {
       .select()
       .from(passwordHistory)
       .where(eq(passwordHistory.userId, id))
-      .all();
+      ;
     expect(rows.length).toBeLessThanOrEqual(PASSWORD_HISTORY_SIZE);
   });
 });

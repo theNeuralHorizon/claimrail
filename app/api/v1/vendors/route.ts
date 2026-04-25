@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       contactEmail: parsed.data.contactEmail,
       notes: parsed.data.notes ? sanitizeBlock(parsed.data.notes, 2000) : null,
     })
-    .run();
+    ;
   let tierRank = 1;
   for (const t of [...parsed.data.tiers].sort(
     (a, b) => b.uptimeThresholdPct - a.uptimeThresholdPct,
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
         tierRank: tierRank++,
         sourceExcerpt: t.sourceExcerpt ?? null,
       })
-      .run();
+      ;
   }
   await appendAuditEvent({
     orgId: resolved.orgId,

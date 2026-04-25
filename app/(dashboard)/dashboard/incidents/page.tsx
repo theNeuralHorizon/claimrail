@@ -18,7 +18,7 @@ export default async function IncidentsPage() {
     .innerJoin(vendors, eq(incidents.vendorId, vendors.id))
     .where(eq(vendors.orgId, ctx.org.id))
     .orderBy(desc(incidents.startedAt))
-    .all();
+    ;
 
   return (
     <div className="p-8 space-y-6">

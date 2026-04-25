@@ -38,7 +38,7 @@ export async function recordFailedLogin(userId: string): Promise<void> {
     .select({ failedLoginCount: users.failedLoginCount, lockedUntil: users.lockedUntil })
     .from(users)
     .where(eq(users.id, userId))
-    .get();
+    .then((r) => r[0]);
   if (!u) return;
   const nextCount = (u.failedLoginCount ?? 0) + 1;
   let lockedUntil: number | null = u.lockedUntil ?? null;
@@ -52,7 +52,7 @@ export async function recordFailedLogin(userId: string): Promise<void> {
     .update(users)
     .set({ failedLoginCount: nextCount, lockedUntil })
     .where(eq(users.id, userId))
-    .run();
+    ;
 }
 
 export async function recordSuccessfulLogin(userId: string): Promise<void> {
@@ -60,7 +60,7 @@ export async function recordSuccessfulLogin(userId: string): Promise<void> {
     .update(users)
     .set({ failedLoginCount: 0, lockedUntil: null })
     .where(eq(users.id, userId))
-    .run();
+    ;
 }
 
 export { LOCK_THRESHOLD, BASE_LOCK_SECONDS, MAX_LOCK_SECONDS };

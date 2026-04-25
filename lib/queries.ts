@@ -35,7 +35,7 @@ async function loadTiers(vendorId: string) {
     .select()
     .from(slaTerms)
     .where(eq(slaTerms.vendorId, vendorId))
-    .all();
+    ;
 }
 
 async function loadIncidents(vendorId: string, sinceSeconds?: number) {
@@ -45,13 +45,13 @@ async function loadIncidents(vendorId: string, sinceSeconds?: number) {
         .from(incidents)
         .where(and(eq(incidents.vendorId, vendorId), gte(incidents.startedAt, sinceSeconds)))
         .orderBy(desc(incidents.startedAt))
-        .all()
+        
     : await db
         .select()
         .from(incidents)
         .where(eq(incidents.vendorId, vendorId))
         .orderBy(desc(incidents.startedAt))
-        .all();
+        ;
   return rows.map((i) => ({
     id: i.id,
     startedAt: i.startedAt,
@@ -69,7 +69,7 @@ async function latestProbeStatus(vendorId: string): Promise<'up' | 'degraded' | 
     .where(eq(probes.vendorId, vendorId))
     .orderBy(desc(probes.checkedAt))
     .limit(1)
-    .get();
+    .then((r) => r[0]);
   return (row?.status as 'up' | 'degraded' | 'down') ?? 'unknown';
 }
 
@@ -79,7 +79,7 @@ export async function getOrgVendors(orgId: string) {
     .from(vendors)
     .where(eq(vendors.orgId, orgId))
     .orderBy(vendors.name)
-    .all();
+    ;
 }
 
 export async function getVendorOverviews(
@@ -164,7 +164,7 @@ export async function getDashboardSummary(orgId: string): Promise<DashboardSumma
           sql`${incidents.endedAt} IS NULL`,
         ),
       )
-      .get();
+      .then((r) => r[0]);
     activeIncidents = Number(active?.count ?? 0);
 
     const open = await db
@@ -179,7 +179,7 @@ export async function getDashboardSummary(orgId: string): Promise<DashboardSumma
           sql`${claims.status} IN ('drafted','filed','acknowledged')`,
         ),
       )
-      .get();
+      .then((r) => r[0]);
     openClaims = Number(open?.count ?? 0);
 
     const rec = await db
@@ -194,7 +194,7 @@ export async function getDashboardSummary(orgId: string): Promise<DashboardSumma
           eq(claims.status, 'recovered'),
         ),
       )
-      .get();
+      .then((r) => r[0]);
     recoveredYtd = Number(rec?.total ?? 0);
   }
 
@@ -223,7 +223,7 @@ export async function getRecentIncidents(orgId: string, limit = 10) {
     .where(eq(vendors.orgId, orgId))
     .orderBy(desc(incidents.startedAt))
     .limit(limit)
-    .all();
+    ;
   return rows.map((r) => ({
     incident: r.i,
     vendor: r.v,
@@ -237,7 +237,7 @@ export async function getAllClaims(orgId: string) {
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(eq(vendors.orgId, orgId))
     .orderBy(desc(claims.createdAt))
-    .all();
+    ;
   return rows.map((r) => ({ claim: r.c, vendor: r.v }));
 }
 
@@ -256,7 +256,7 @@ export async function getDailyUptime(
     .select()
     .from(incidents)
     .where(and(eq(incidents.vendorId, vendorId), gte(incidents.startedAt, startDay - 7 * 86400)))
-    .all();
+    ;
   const now = Math.floor(Date.now() / 1000);
   const out: Array<{ day: number; uptimePct: number }> = [];
   for (let i = 0; i < days; i += 1) {
@@ -312,7 +312,7 @@ export async function getMonthlyRecovery(
     .from(claims)
     .innerJoin(vendors, eq(claims.vendorId, vendors.id))
     .where(eq(vendors.orgId, orgId))
-    .all();
+    ;
   const byPeriod = new Map<
     string,
     { drafted: number; filed: number; recovered: number; count: number }
@@ -351,7 +351,7 @@ export async function getVendorDetail(orgId: string, vendorId: string) {
     .select()
     .from(vendors)
     .where(and(eq(vendors.id, vendorId), eq(vendors.orgId, orgId)))
-    .get();
+    .then((r) => r[0]);
   if (!vendor) return null;
   const tiers = await loadTiers(vendor.id);
   const incidents90d = await loadIncidents(
@@ -369,13 +369,13 @@ export async function getVendorDetail(orgId: string, vendorId: string) {
     )
     .orderBy(desc(probes.checkedAt))
     .limit(3000)
-    .all();
+    ;
   const vendorClaims = await db
     .select()
     .from(claims)
     .where(eq(claims.vendorId, vendor.id))
     .orderBy(desc(claims.createdAt))
-    .all();
+    ;
 
   const currentReport = computeUptimeReport(currentPeriod(), incidents90d);
   const prevReport = computeUptimeReport(previousPeriod(currentPeriod()), incidents90d);

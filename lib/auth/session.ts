@@ -113,7 +113,7 @@ export async function createSession(userId: string, email: string) {
   const expiresAt = now + SESSION_TTL_SECONDS;
   const absExp = now + ABSOLUTE_TTL_SECONDS;
   const fp = fingerprint();
-  await db.insert(sessions).values({ id: sid, userId, expiresAt }).run();
+  await db.insert(sessions).values({ id: sid, userId, expiresAt });
   const jwt = await signSession({ sid, uid: userId, email, fp, absExp });
   const cookieStore = cookies();
   // __Host- prefix requires: Secure + Path=/ + no Domain. Enforces origin.
@@ -141,7 +141,7 @@ export async function destroySession(): Promise<void> {
   if (token) {
     const payload = await verifySession(token);
     if (payload) {
-      await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+      await db.delete(sessions).where(eq(sessions.id, payload.sid));
     }
   }
   cookieStore.delete(COOKIE_NAME);
@@ -163,7 +163,7 @@ export async function currentSessionId(): Promise<string | null> {
 export async function destroyAllSessionsForUser(): Promise<void> {
   const ctx = await getAuthContext();
   if (!ctx) return;
-  await db.delete(sessions).where(eq(sessions.userId, ctx.user.id)).run();
+  await db.delete(sessions).where(eq(sessions.userId, ctx.user.id));
   const cookieStore = cookies();
   cookieStore.delete(COOKIE_NAME);
   cookieStore.delete(LEGACY_COOKIE_NAME);
@@ -183,13 +183,13 @@ export async function getAuthContext(): Promise<AuthContext | null> {
 
   // Absolute expiry check — a sliding session can't live forever.
   if (payload.absExp < Math.floor(Date.now() / 1000)) {
-    await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+    await db.delete(sessions).where(eq(sessions.id, payload.sid));
     return null;
   }
 
   // Fingerprint check — binds session to originating UA + IP class.
   if (payload.fp !== fingerprint()) {
-    await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+    await db.delete(sessions).where(eq(sessions.id, payload.sid));
     return null;
   }
 
@@ -197,14 +197,14 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     .select()
     .from(sessions)
     .where(eq(sessions.id, payload.sid))
-    .get();
+    .then((r) => r[0]);
   if (!sessionRow) return null;
   if (sessionRow.expiresAt < Math.floor(Date.now() / 1000)) {
-    await db.delete(sessions).where(eq(sessions.id, payload.sid)).run();
+    await db.delete(sessions).where(eq(sessions.id, payload.sid));
     return null;
   }
 
-  const user = await db.select().from(users).where(eq(users.id, payload.uid)).get();
+  const user = await db.select().from(users).where(eq(users.id, payload.uid)).then((r) => r[0]);
   if (!user) return null;
 
   const mem = await db
@@ -212,7 +212,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     .from(memberships)
     .innerJoin(orgs, eq(memberships.orgId, orgs.id))
     .where(eq(memberships.userId, user.id))
-    .get();
+    .then((r) => r[0]);
   if (!mem) return null;
 
   return {
@@ -241,6 +241,6 @@ export async function assertOrgAccess(
     .select()
     .from(memberships)
     .where(and(eq(memberships.userId, userId), eq(memberships.orgId, orgId)))
-    .get();
+    .then((r) => r[0]);
   return (mem?.role as 'owner' | 'admin' | 'member' | null) ?? null;
 }

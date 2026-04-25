@@ -31,7 +31,7 @@ export default async function SecurityPage() {
     )
     .orderBy(desc(securityEvents.createdAt))
     .limit(200)
-    .all();
+    ;
 
   const counts = {
     critical: rows.filter((r) => r.severity === 'critical').length,

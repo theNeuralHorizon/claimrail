@@ -26,7 +26,7 @@ export async function GET() {
     )
     .orderBy(desc(securityEvents.createdAt))
     .limit(20)
-    .all();
+    ;
 
   return NextResponse.json({ items: rows });
 }
