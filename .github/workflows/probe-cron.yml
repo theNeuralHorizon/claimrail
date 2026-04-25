@@ -1,0 +1,50 @@
+name: Probe cron
+
+# Hits /api/cron/probes every 5 minutes (the smallest interval GitHub
+# Actions schedule supports). The endpoint walks every active vendor in
+# every org and records a fresh uptime probe — driving the dashboard
+# numbers and the auto-claim drafting pipeline.
+#
+# GitHub's scheduled events are best-effort: actual fire times can drift
+# 5–15 minutes under load. That's acceptable for SLA monitoring at this
+# scale. If sub-minute precision becomes a requirement later, swap to
+# Render's paid cron tier ($1/mo) using mcp__render__create_cron_job.
+#
+# Required repo secrets:
+#   APP_URL       https://claimrail-tj98.onrender.com (or custom domain)
+#   CRON_SECRET   matches the value set on the Render web service
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-cron
+  cancel-in-progress: false
+
+jobs:
+  hit-probes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: POST /api/cron/probes
+        if: env.APP_URL != '' && env.CRON_SECRET != ''
+        run: |
+          set -euo pipefail
+          # `--fail-with-body` returns non-zero on >=400 but still prints
+          # the body, so failed probes show diagnostic JSON in the run log.
+          curl --fail-with-body --silent --show-error --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -X POST "$APP_URL/api/cron/probes"
+
+      - name: Note skipped probe
+        if: env.APP_URL == '' || env.CRON_SECRET == ''
+        run: |
+          echo "::warning::Skipped probe — APP_URL / CRON_SECRET secrets not set."
