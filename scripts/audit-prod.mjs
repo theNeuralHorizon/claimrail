@@ -85,7 +85,12 @@ for (const p of PAGES) {
   const t0 = Date.now();
   let goErr = null;
   try {
-    const resp = await page.goto(`${BASE}${p.path}`, { waitUntil: 'networkidle', timeout: 30_000 });
+    // `networkidle` is flaky with Next.js streaming RSC responses — the
+    // streaming chunks register as ongoing network even after the user-
+    // visible HTML is fully parsed. `domcontentloaded` fires deterministically
+    // and we still catch console errors / pageerrors / 5xx — those events
+    // arrive whether or not networkidle fires.
+    const resp = await page.goto(`${BASE}${p.path}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (resp && resp.status() >= 500) currentRow.status = 'fail';
   } catch (e) {
     goErr = e;

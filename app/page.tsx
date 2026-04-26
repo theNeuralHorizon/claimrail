@@ -629,9 +629,9 @@ function Footer() {
         <div className="flex items-center gap-6">
           <a href="/api-docs" className="hover:text-ink-900 transition-colors">Docs</a>
           <a href="/status" className="hover:text-ink-900 transition-colors">Status</a>
-          <a href="#" className="hover:text-ink-900 transition-colors">Privacy</a>
-          <a href="#" className="hover:text-ink-900 transition-colors">Security</a>
-          <a href="#" className="hover:text-ink-900 transition-colors">Contact</a>
+          <a href="/privacy" className="hover:text-ink-900 transition-colors">Privacy</a>
+          <a href="/terms" className="hover:text-ink-900 transition-colors">Terms</a>
+          <a href="mailto:hello@claimrail.io" className="hover:text-ink-900 transition-colors">Contact</a>
         </div>
       </div>
     </footer>

@@ -17,7 +17,12 @@ export default function LoginPage() {
       </div>
       <LoginForm />
       <div className="rounded-lg border border-dashed border-brand-200 bg-brand-50/40 p-3 text-xs text-brand-900">
-        <b>Demo account:</b> demo@claimrail.io / DemoRail!2026
+        <b>👋 Demo workspace pre-loaded.</b>{' '}
+        Sign in above to explore — six vendors, real probe data, sample
+        claims. Or{' '}
+        <Link href="/signup" className="font-medium underline">
+          start fresh →
+        </Link>
       </div>
     </div>
   );
