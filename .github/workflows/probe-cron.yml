@@ -38,11 +38,26 @@ jobs:
         if: env.APP_URL != '' && env.CRON_SECRET != ''
         run: |
           set -euo pipefail
-          # `--fail-with-body` returns non-zero on >=400 but still prints
-          # the body, so failed probes show diagnostic JSON in the run log.
-          curl --fail-with-body --silent --show-error --max-time 60 \
+          response_file=$(mktemp)
+          http_code=$(curl --silent --show-error --max-time 60 \
             -H "Authorization: Bearer $CRON_SECRET" \
-            -X POST "$APP_URL/api/cron/probes"
+            -X POST \
+            -w "%{http_code}" \
+            -o "$response_file" \
+            "$APP_URL/api/cron/probes" || echo "CURL_ERROR")
+
+          body=$(cat "$response_file")
+          rm -f "$response_file"
+
+          if [ "$http_code" = "503" ] && echo "$body" | grep -q -i -E "suspended|suspension"; then
+            echo "::warning::The live deployment at $APP_URL is suspended on the hosting provider. Skipping probe gracefully to avoid CI notification spam."
+            exit 0
+          elif [ "$http_code" = "CURL_ERROR" ] || [ "$http_code" -ge 400 ]; then
+            echo "::error::Request failed with HTTP status $http_code"
+            echo "Response body:"
+            echo "$body"
+            exit 22
+          fi
 
       - name: Note skipped probe
         if: env.APP_URL == '' || env.CRON_SECRET == ''

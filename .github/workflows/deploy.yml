@@ -39,7 +39,20 @@ jobs:
           # promote-to-production after the git push.
           for attempt in $(seq 1 12); do
             echo "attempt $attempt → $DEPLOY_URL/api/health"
-            body=$(curl --silent --show-error --max-time 10 "$DEPLOY_URL/api/health" || true)
+            response_file=$(mktemp)
+            http_code=$(curl --silent --show-error --max-time 10 \
+              -w "%{http_code}" \
+              -o "$response_file" \
+              "$DEPLOY_URL/api/health" || echo "CURL_ERROR")
+            
+            body=$(cat "$response_file")
+            rm -f "$response_file"
+
+            if [ "$http_code" = "503" ] && echo "$body" | grep -q -i -E "suspended|suspension"; then
+              echo "::error::The Render deployment at $DEPLOY_URL is suspended or disabled (503 Service Suspended). Please unsuspend your service in the Render dashboard."
+              exit 1
+            fi
+
             if echo "$body" | grep -q '"service":"claimrail"'; then
               echo "ok — health endpoint reachable"
               echo "$body"
