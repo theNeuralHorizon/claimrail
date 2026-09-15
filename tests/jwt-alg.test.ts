@@ -83,9 +83,17 @@ describe('JWT algorithm pinning', () => {
       fp: 'q'.repeat(24),
       absExp: Math.floor(Date.now() / 1000) + 86400,
     });
-    // Flip the last char of the signature portion.
+    // Flip a bit in the *decoded* signature, not the base64url string
+    // directly — a 32-byte HMAC-SHA256 signature base64url-encodes to 43
+    // chars, and the last char carries only 4 real payload bits plus 2
+    // unused padding bits. Flipping the string's last character can land
+    // entirely in those padding bits, decoding back to byte-identical
+    // signature bytes — which then (correctly) still verifies, making the
+    // test flaky rather than the app insecure. XOR a real byte instead.
     const parts = token.split('.');
-    parts[2] = parts[2].slice(0, -1) + (parts[2].slice(-1) === 'a' ? 'b' : 'a');
+    const sigBytes = Buffer.from(parts[2], 'base64url');
+    sigBytes[0] ^= 0xff;
+    parts[2] = sigBytes.toString('base64url');
     const tampered = parts.join('.');
     expect(await verifySession(tampered)).toBeNull();
   });
