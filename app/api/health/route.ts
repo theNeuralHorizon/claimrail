@@ -10,7 +10,14 @@ import { desc, sql } from 'drizzle-orm';
  *
  * Returns 200 when everything looks healthy and 503 otherwise. Upstream
  * load balancers + uptime monitors should check status code + JSON.
+ *
+ * This GET handler has no request-dependent API calls (no headers()/
+ * cookies()), so without `dynamic = 'force-dynamic'` Next.js treats it as
+ * static and caches the very first response forever — every request after
+ * the initial build-time render would return the same stale JSON, no
+ * matter what actually changed in the DB.
  */
+export const dynamic = 'force-dynamic';
 
 interface HealthResult {
   ok: boolean;
