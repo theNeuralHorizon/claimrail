@@ -79,8 +79,13 @@ export async function resolveApiToken(raw: string): Promise<ResolvedApiToken | n
     .then((r) => r[0]);
   if (!row) return null;
   if (row.revokedAt != null) return null;
-  // Fire-and-forget lastUsedAt bump.
-  void db
+  // Bump lastUsedAt. Previously fire-and-forget (unawaited) — in
+  // production that update was silently dropped, seemingly because the
+  // route handler's response finalized and tore down request-scoped
+  // resources before the detached promise got a chance to flush. Awaiting
+  // it costs one extra indexed UPDATE round-trip (single row, by primary
+  // key) but actually persists.
+  await db
     .update(apiTokens)
     .set({ lastUsedAt: Math.floor(Date.now() / 1000) })
     .where(eq(apiTokens.id, row.id))
