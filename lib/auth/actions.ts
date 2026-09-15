@@ -326,18 +326,6 @@ export async function loginAction(
         .from(totpBackupCodes)
         .where(and(eq(totpBackupCodes.userId, user.id), eq(totpBackupCodes.codeHash, hash)))
         .then((r) => r[0]);
-      // TEMP DEBUG — remove after diagnosing live backup-code failure.
-      console.error('[DEBUG backup-code]', {
-        rawLen: code.length,
-        normalizedLen: normalizedCode.length,
-        normalizedPreview: normalizedCode,
-        hashPrefix: hash.slice(0, 12),
-        rowFound: !!row,
-        rowUsedAt: row?.usedAt ?? null,
-        totalCodesForUser: (
-          await db.select().from(totpBackupCodes).where(eq(totpBackupCodes.userId, user.id))
-        ).length,
-      });
       if (row && !row.usedAt) {
         await db
           .update(totpBackupCodes)
