@@ -1,0 +1,64 @@
+name: Rotate free Postgres
+
+# Render's free-tier Postgres plan deletes the database 30 days after
+# creation, no grace period. That silently broke prod once already (the
+# original dpg-d7mae0hkh4rs73ajen5g-a instance vanished and every
+# DB-touching request started throwing ENOTFOUND — see git history around
+# 2026-09-15). This workflow runs scripts/rotate-db.mjs, which checks the
+# *live* database's expiresAt and — only when it's within
+# ROTATE_WITHIN_DAYS — provisions a replacement, migrates it, cuts the
+# service over, and deletes the old one. Stateless: safe to run daily.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   RENDER_API_KEY   Render API key (Account Settings → API Keys)
+#   SERVICE_ID       srv-… id of the claimrail web service
+#   OWNER_ID         tea-… Render workspace id
+#
+# If any of these aren't set the job logs a warning and skips, so a fresh
+# fork stays green instead of failing on missing secrets.
+
+on:
+  schedule:
+    # Daily at 03:17 UTC — off the hour to dodge GitHub's scheduling pileup.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-rotate
+  cancel-in-progress: false
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      SERVICE_ID: ${{ secrets.SERVICE_ID }}
+      OWNER_ID: ${{ secrets.OWNER_ID }}
+    steps:
+      - name: Checkout
+        if: env.RENDER_API_KEY != '' && env.SERVICE_ID != '' && env.OWNER_ID != ''
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: env.RENDER_API_KEY != '' && env.SERVICE_ID != '' && env.OWNER_ID != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: env.RENDER_API_KEY != '' && env.SERVICE_ID != '' && env.OWNER_ID != ''
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+
+      - name: Check expiry and rotate if due
+        if: env.RENDER_API_KEY != '' && env.SERVICE_ID != '' && env.OWNER_ID != ''
+        run: node scripts/rotate-db.mjs
+
+      - name: Note skipped rotation check
+        if: env.RENDER_API_KEY == '' || env.SERVICE_ID == '' || env.OWNER_ID == ''
+        run: |
+          echo "::warning::Skipped DB rotation check — RENDER_API_KEY / SERVICE_ID / OWNER_ID secrets not set."
