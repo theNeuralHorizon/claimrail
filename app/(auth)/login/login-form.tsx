@@ -61,9 +61,7 @@ export function LoginForm() {
             id="totpCode"
             name="totpCode"
             type="text"
-            inputMode="numeric"
             autoComplete="one-time-code"
-            pattern="\d{6}"
             placeholder="6-digit code or a backup code"
             autoFocus
           />
