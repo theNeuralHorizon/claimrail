@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { seedDemoData } from '@/lib/db/seed';
+import { db } from '@/lib/db/client';
+import { users } from '@/lib/db/schema';
 
 // TEMPORARY: one-shot trigger to reseed the demo tenant on the live
 // deployment after the 2026-09-15 Postgres rotation wiped prod data.
@@ -31,4 +33,22 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// Read-only diagnostic — same auth, no side effects.
+export async function GET(req: NextRequest) {
+  const expected = process.env.CRON_SECRET;
+  if (!expected) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
+  const header = req.headers.get('authorization') ?? '';
+  const token = header.replace(/^Bearer\s+/i, '');
+  if (token !== expected) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  const rows = await db
+    .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
+    .from(users);
+  return NextResponse.json({ count: rows.length, users: rows });
 }
