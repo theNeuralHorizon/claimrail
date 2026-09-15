@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { seedDemoData } from '@/lib/db/seed';
 import { db } from '@/lib/db/client';
-import { users } from '@/lib/db/schema';
+import { users, apiTokens } from '@/lib/db/schema';
 
 // TEMPORARY: one-shot trigger to reseed the demo tenant on the live
 // deployment after the 2026-09-15 Postgres rotation wiped prod data.
@@ -50,5 +50,14 @@ export async function GET(req: NextRequest) {
   const rows = await db
     .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
     .from(users);
-  return NextResponse.json({ count: rows.length, users: rows });
+  const tokens = await db
+    .select({
+      id: apiTokens.id,
+      name: apiTokens.name,
+      scope: apiTokens.scope,
+      lastUsedAt: apiTokens.lastUsedAt,
+      createdAt: apiTokens.createdAt,
+    })
+    .from(apiTokens);
+  return NextResponse.json({ count: rows.length, users: rows, tokens });
 }
