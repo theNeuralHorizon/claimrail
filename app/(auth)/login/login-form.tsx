@@ -1,6 +1,7 @@
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
+import { useRef } from 'react';
 import Link from 'next/link';
 import { Input, Label } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,19 +21,21 @@ function Submit({ children }: { children: React.ReactNode }) {
 export function LoginForm() {
   const [state, formAction] = useFormState(loginAction, initial);
   const requiresTotp = state?.requiresTotp === true;
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const passwordRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <form action={formAction} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <Input
+          ref={emailRef}
           id="email"
           name="email"
           type="email"
           required
           autoComplete="email"
           placeholder="you@company.com"
-          defaultValue="demo@claimrail.io"
           readOnly={requiresTotp}
         />
       </div>
@@ -44,13 +47,13 @@ export function LoginForm() {
           </Link>
         </div>
         <Input
+          ref={passwordRef}
           id="password"
           name="password"
           type="password"
           required
           autoComplete="current-password"
           placeholder="••••••••"
-          defaultValue="DemoRail!2026"
           readOnly={requiresTotp}
         />
       </div>
@@ -76,6 +79,19 @@ export function LoginForm() {
         </div>
       ) : null}
       <Submit>{requiresTotp ? 'Verify and sign in' : 'Sign in'}</Submit>
+      {!requiresTotp ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (emailRef.current) emailRef.current.value = 'demo@claimrail.io';
+            if (passwordRef.current) passwordRef.current.value = 'DemoRail!2026';
+            passwordRef.current?.focus();
+          }}
+          className="block w-full text-center text-xs text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+        >
+          Use demo credentials
+        </button>
+      ) : null}
     </form>
   );
 }
