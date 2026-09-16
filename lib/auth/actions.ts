@@ -29,6 +29,7 @@ import {
   LOCK_THRESHOLD,
 } from './lockout';
 import { consumeToken, issueToken } from './tokens';
+import { resolveInvitation, consumeInvitation, tryAttachExistingUser } from './invitations';
 import { sendEmail, appUrl } from './email';
 import {
   digestToken,
@@ -54,20 +55,33 @@ const signupSchema = z
     email: z.string().email().max(256),
     password: z.string().min(1).max(128),
     name: z.string().min(1).max(100),
-    orgName: z.string().min(1).max(100),
+    // Not required when signing up via a team invite — the org already
+    // exists, the new account joins it instead of creating one.
+    orgName: z.string().max(100).optional(),
+    // Raw invitation token carried through from /accept-invite. Validated
+    // (and its email cross-checked) inside the action, not here.
+    invite: z.string().max(64).optional(),
     // Honeypot: real browsers leave this empty. Bots fill every input.
     company_website: z.string().max(0).optional(),
     // Client-side JS writes this when the form mounts. Any submit faster
     // than MIN_SUBMIT_MS is almost certainly a bot.
     formMountedAt: z.coerce.number().optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => data.invite || (data.orgName ?? '').trim().length > 0, {
+    message: 'Company name is required.',
+    path: ['orgName'],
+  });
 
 const loginSchema = z
   .object({
     email: z.string().email().max(256),
     password: z.string().min(1).max(128),
     totpCode: z.string().max(20).optional(),
+    // Carried through from /accept-invite?...&invite=... for a user who
+    // already has an account — validated and consumed after a successful
+    // login, not here.
+    invite: z.string().max(64).optional(),
   })
   .strict();
 
@@ -152,7 +166,8 @@ export async function signupAction(
     email: formData.get('email'),
     password: formData.get('password'),
     name: formData.get('name'),
-    orgName: formData.get('orgName'),
+    orgName: formData.get('orgName') || undefined,
+    invite: formData.get('invite') || undefined,
     company_website: formData.get('company_website') ?? undefined,
     formMountedAt: mountedAt || undefined,
   });
@@ -162,7 +177,6 @@ export async function signupAction(
 
   const email = sanitizeLine(parsed.data.email, 256);
   const name = sanitizeLine(parsed.data.name, 100);
-  const orgName = sanitizeLine(parsed.data.orgName, 100);
   const { password } = parsed.data;
 
   const policy = checkPasswordPolicy(password, { email, name });
@@ -180,26 +194,47 @@ export async function signupAction(
     };
   }
 
-  const userId = nanoid(16);
-  const orgId = nanoid(16);
-  let slug = slugify(orgName) || `org-${nanoid(6)}`;
-  let attempt = 0;
-  while (await db.select().from(orgs).where(eq(orgs.slug, slug)).then((r) => r[0])) {
-    attempt += 1;
-    slug = `${slugify(orgName) || 'org'}-${attempt}`;
-    if (attempt > 10) slug = `org-${nanoid(6)}`;
-  }
+  // A team invite only binds this signup to the inviting org if it's
+  // still valid AND was issued for this exact email — otherwise someone
+  // could sign up with any email while carrying along a stale/unrelated
+  // token and land in a stranger's org.
+  const resolvedInvite = parsed.data.invite
+    ? await resolveInvitation(parsed.data.invite)
+    : null;
+  const invite =
+    resolvedInvite && resolvedInvite.email === normalizedEmail ? resolvedInvite : null;
 
+  const userId = nanoid(16);
   const passwordHash = await hashPassword(password);
   await db
     .insert(users)
     .values({ id: userId, email: normalizedEmail, name, passwordHash })
     ;
-  await db.insert(orgs).values({ id: orgId, name: orgName, slug });
-  await db
-    .insert(memberships)
-    .values({ id: nanoid(16), userId, orgId, role: 'owner' })
-    ;
+
+  let orgId: string;
+  if (invite) {
+    orgId = invite.orgId;
+    await db
+      .insert(memberships)
+      .values({ id: nanoid(16), userId, orgId, role: invite.role })
+      ;
+    await consumeInvitation(invite.id);
+  } else {
+    const orgName = sanitizeLine(parsed.data.orgName ?? '', 100);
+    orgId = nanoid(16);
+    let slug = slugify(orgName) || `org-${nanoid(6)}`;
+    let attempt = 0;
+    while (await db.select().from(orgs).where(eq(orgs.slug, slug)).then((r) => r[0])) {
+      attempt += 1;
+      slug = `${slugify(orgName) || 'org'}-${attempt}`;
+      if (attempt > 10) slug = `org-${nanoid(6)}`;
+    }
+    await db.insert(orgs).values({ id: orgId, name: orgName, slug });
+    await db
+      .insert(memberships)
+      .values({ id: nanoid(16), userId, orgId, role: 'owner' })
+      ;
+  }
 
   const token = await issueToken(userId, 'email_verify');
   await sendEmail({
@@ -243,6 +278,7 @@ export async function loginAction(
     email,
     password: formData.get('password'),
     totpCode: formData.get('totpCode') ?? undefined,
+    invite: formData.get('invite') || undefined,
   });
   if (!parsed.success) {
     await runDummyVerify();
@@ -373,6 +409,27 @@ export async function loginAction(
 
   await logSecurityEvent({ kind: 'login.success', userId: user.id, ip, userAgent });
   await createSession(user.id, user.email);
+
+  // If this login came from an "I already have an account" link on an
+  // invite page, finish joining the inviting org right here — otherwise
+  // the invite context is lost the moment login redirects to /dashboard.
+  if (parsed.data.invite) {
+    const invite = await resolveInvitation(parsed.data.invite);
+    if (invite && invite.email === user.email.toLowerCase()) {
+      const attached = await tryAttachExistingUser(invite);
+      if (attached.attached) {
+        await appendAuditEvent({
+          orgId: invite.orgId,
+          actorId: user.id,
+          action: 'team.invite.accept',
+          resource: 'invitation',
+          resourceId: invite.id,
+        });
+        redirect('/dashboard?joined=1');
+      }
+    }
+  }
+
   redirect('/dashboard');
 }
 

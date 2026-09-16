@@ -18,7 +18,15 @@ function Submit({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function LoginForm() {
+export interface LoginFormProps {
+  defaultEmail?: string;
+  /** True when the email came from an invite link — locked so the login
+   * stays for the account the invite was actually sent to. */
+  emailLocked?: boolean;
+  inviteToken?: string;
+}
+
+export function LoginForm({ defaultEmail, emailLocked = false, inviteToken }: LoginFormProps) {
   const [state, formAction] = useFormState(loginAction, initial);
   const requiresTotp = state?.requiresTotp === true;
   const emailRef = useRef<HTMLInputElement | null>(null);
@@ -26,6 +34,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {inviteToken ? <input type="hidden" name="invite" value={inviteToken} /> : null}
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -36,7 +45,8 @@ export function LoginForm() {
           required
           autoComplete="email"
           placeholder="you@company.com"
-          readOnly={requiresTotp}
+          defaultValue={defaultEmail}
+          readOnly={requiresTotp || emailLocked}
         />
       </div>
       <div className="space-y-1.5">
@@ -79,7 +89,7 @@ export function LoginForm() {
         </div>
       ) : null}
       <Submit>{requiresTotp ? 'Verify and sign in' : 'Sign in'}</Submit>
-      {!requiresTotp ? (
+      {!requiresTotp && !inviteToken ? (
         <button
           type="button"
           onClick={() => {

@@ -17,7 +17,21 @@ function Submit({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SignupForm() {
+export interface SignupFormProps {
+  defaultEmail?: string;
+  /** True when the email came from a valid invitation and must not change
+   * — the invite was issued for that exact address. */
+  emailLocked?: boolean;
+  inviteToken?: string;
+  inviteOrgName?: string | null;
+}
+
+export function SignupForm({
+  defaultEmail,
+  emailLocked = false,
+  inviteToken,
+  inviteOrgName,
+}: SignupFormProps) {
   const [state, formAction] = useFormState(signupAction, initial);
   const mountRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -50,16 +64,24 @@ export function SignupForm() {
         name="formMountedAt"
         defaultValue=""
       />
+      {inviteToken ? <input type="hidden" name="invite" value={inviteToken} /> : null}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={inviteToken ? '' : 'grid grid-cols-2 gap-3'}>
         <div className="space-y-1.5">
           <Label htmlFor="name">Your name</Label>
           <Input id="name" name="name" required autoComplete="name" placeholder="Alex Smith" />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="orgName">Company</Label>
-          <Input id="orgName" name="orgName" required placeholder="Acme Inc." />
-        </div>
+        {inviteToken ? (
+          <div className="rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-700 dark:border-ink-700 dark:bg-ink-800/40 dark:text-ink-300">
+            Joining <b>{inviteOrgName ?? 'the team'}</b> — no company name needed, you're joining
+            an existing workspace.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="orgName">Company</Label>
+            <Input id="orgName" name="orgName" required placeholder="Acme Inc." />
+          </div>
+        )}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="email">Work email</Label>
@@ -70,7 +92,14 @@ export function SignupForm() {
           required
           autoComplete="email"
           placeholder="you@company.com"
+          defaultValue={defaultEmail}
+          readOnly={emailLocked}
         />
+        {emailLocked ? (
+          <p className="text-xs text-ink-500">
+            Locked to the address this invite was sent to.
+          </p>
+        ) : null}
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="password">Password</Label>
