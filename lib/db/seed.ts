@@ -331,18 +331,12 @@ export async function seedDemoData() {
   console.log('  Login with: demo@claimrail.io / DemoRail!2026\n');
 }
 
-// Only run automatically when executed directly (`tsx lib/db/seed.ts` /
-// `npm run db:seed`) — not when `seedDemoData` is imported by other code
-// (e.g. the admin seed route), which would otherwise reseed on every import.
-const isDirectRun = process.argv[1] && import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`;
-if (isDirectRun) {
-  seedDemoData()
-    .catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error('Seed failed:', err);
-      process.exit(1);
-    })
-    .finally(async () => {
-      await sqlClient.end({ timeout: 5 }).catch(() => null);
-    });
-}
+seedDemoData()
+  .catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error('Seed failed:', err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await sqlClient.end({ timeout: 5 }).catch(() => null);
+  });
